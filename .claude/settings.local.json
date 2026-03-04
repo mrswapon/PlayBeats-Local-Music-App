@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /c/Users/swapo/StudioProjects/play_beats && flutter pub get 2>&1)",
+      "Bash(cd /c/Users/swapo/StudioProjects/play_beats && flutter analyze 2>&1)",
+      "Bash(cd /c/Users/swapo/StudioProjects/play_beats && flutter clean 2>&1)",
+      "Bash(head:*)",
+      "Bash(cd \"C:\\\\Users\\\\swapo\\\\StudioProjects\\\\play_beats\" && flutter analyze 2>&1)",
+      "Bash(cd \"C:\\\\Users\\\\swapo\\\\StudioProjects\\\\play_beats\" && flutter pub get 2>&1)",
+      "Bash(grep youtube_explode:*)",
+      "Bash(grep:*)",
+      "Bash(cd \"C:/Users/swapo/StudioProjects/play_beats\" && flutter pub get 2>&1)",
+      "Bash(cd \"C:/Users/swapo/StudioProjects/play_beats\" && flutter analyze 2>&1)",
+      "Bash(tail:*)"
+    ]
+  }
+}
