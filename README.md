@@ -18,10 +18,6 @@ A beautifully crafted local music player for Android, built with Flutter. PlayBe
 - **Onboarding** — Animated welcome screen with custom-painted vinyl, CD, and cassette illustrations
 - **Staggered Animations** — Smooth entry animations on the songs list
 
-## Screenshots 
-
-_Add screenshots here_
-
 ## Architecture
 
 PlayBeats follows **clean architecture** with a **feature-based folder structure** and **BLoC pattern** for state management.
