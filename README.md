@@ -18,7 +18,7 @@ A beautifully crafted local music player for Android, built with Flutter. PlayBe
 - **Onboarding** — Animated welcome screen with custom-painted vinyl, CD, and cassette illustrations
 - **Staggered Animations** — Smooth entry animations on the songs list
 
-## Screenshots
+## Screenshots 
 
 _Add screenshots here_
 
