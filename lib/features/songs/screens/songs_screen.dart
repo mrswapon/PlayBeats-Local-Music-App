@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:play_beats/data/models/song_model.dart';
 import 'package:play_beats/features/player/bloc/player_bloc.dart';
@@ -11,10 +12,9 @@ import 'package:play_beats/features/songs/widgets/explore_album_art.dart';
 import 'dart:math';
 import 'package:shimmer/shimmer.dart';
 
-// ─── Layout patterns (cycle index % 7) ───────────────────────
-const _margins = [0.27, 0.15, 0.08, 0.01, 0.14, 0.05, 0.24];
-const _artSizes = [56.0, 62.0, 54.0, 64.0, 58.0, 52.0, 50.0];
-const _artOnRight = [true, true, false, false, false, false, true];
+// ─── Diagonal cascade margins (fraction of screen width) ─────
+const _margins  = [0.38, 0.22, 0.08, 0.02, 0.16, 0.28, 0.42];
+const _artSizes = [66.0, 72.0, 64.0, 74.0, 68.0, 62.0, 60.0];
 
 // ═════════════════════════════════════════════════════════════════
 class SongsScreen extends StatefulWidget {
@@ -27,18 +27,24 @@ class SongsScreen extends StatefulWidget {
 class _SongsScreenState extends State<SongsScreen>
     with TickerProviderStateMixin {
   final _searchController = TextEditingController();
-  final _searchFocusNode = FocusNode();
+  final _searchFocusNode  = FocusNode();
+  final _scrollController = ScrollController();
   bool _showSearch = false;
+
+  // GlobalKey per list item — used to locate items for centering
+  final Map<int, GlobalKey> _itemKeys = {};
 
   late final AnimationController _entryController;
   late final AnimationController _eqController;
+
+  String? _lastCenteredSongId;
 
   @override
   void initState() {
     super.initState();
     _entryController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 1100),
     );
     _eqController = AnimationController(
       vsync: this,
@@ -51,9 +57,47 @@ class _SongsScreenState extends State<SongsScreen>
   void dispose() {
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _scrollController.dispose();
     _entryController.dispose();
     _eqController.dispose();
     super.dispose();
+  }
+
+  // ── Scroll so the active item is vertically centered ─────────
+  void _centerActiveItem(int activeIndex) {
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+
+      final key = _itemKeys[activeIndex];
+      if (key?.currentContext == null) return;
+
+      final box = key!.currentContext!.findRenderObject() as RenderBox?;
+      if (box == null) return;
+
+      // Position of item relative to the scroll view's RenderBox
+      final scrollBox =
+      _scrollController.position.context.storageContext.findRenderObject()
+      as RenderBox?;
+      if (scrollBox == null) return;
+
+      final itemOffset = box.localToGlobal(Offset.zero, ancestor: scrollBox);
+      final itemH      = box.size.height;
+      final viewportH  = _scrollController.position.viewportDimension;
+      final current    = _scrollController.offset;
+
+      // Target: item center aligns with viewport center
+      final target  = current + itemOffset.dy + itemH / 2 - viewportH / 2;
+      final clamped = target.clamp(
+        _scrollController.position.minScrollExtent,
+        _scrollController.position.maxScrollExtent,
+      );
+
+      _scrollController.animateTo(
+        clamped,
+        duration: const Duration(milliseconds: 480),
+        curve: Curves.easeOutCubic,
+      );
+    });
   }
 
   void _toggleSearch() {
@@ -79,16 +123,8 @@ class _SongsScreenState extends State<SongsScreen>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: _isDark
-              ? const [
-                  Color(0xFF0A0A18),
-                  Color(0xFF0F0F22),
-                  Color(0xFF131330),
-                ]
-              : const [
-                  Color(0xFFE0E0EC),
-                  Color(0xFFE8E8F4),
-                  Color(0xFFF0F0FC),
-                ],
+              ? const [Color(0xFF0A0A18), Color(0xFF0F0F22), Color(0xFF131330)]
+              : const [Color(0xFFE0E0EC), Color(0xFFE8E8F4), Color(0xFFF0F0FC)],
         ),
       ),
       child: SafeArea(
@@ -105,19 +141,13 @@ class _SongsScreenState extends State<SongsScreen>
                   }
                 },
                 builder: (context, state) {
-                  if (state is SongsLoading) return _buildShimmer();
-                  if (state is SongsPermissionDenied) {
-                    return _buildPermissionDenied();
-                  }
-                  if (state is SongsError) {
-                    return _buildError(state.message);
-                  }
+                  if (state is SongsLoading)        return _buildShimmer();
+                  if (state is SongsPermissionDenied) return _buildPermissionDenied();
+                  if (state is SongsError)           return _buildError(state.message);
                   if (state is SongsLoaded) {
                     if (state.displayedSongs.isEmpty) {
                       return _buildEmpty(
-                        state.searchQuery.isNotEmpty
-                            ? 'No songs found'
-                            : 'No songs on device',
+                        state.searchQuery.isNotEmpty ? 'No songs found' : 'No songs on device',
                         state.searchQuery.isNotEmpty
                             ? 'Try a different search term'
                             : 'Add music files to your device\nto see them here',
@@ -136,24 +166,21 @@ class _SongsScreenState extends State<SongsScreen>
   }
 
   // ── Theme-aware colors ────────────────────────────────────────
-  Color get _textPrimary =>
-      _isDark ? const Color(0xEBF0F0FF) : const Color(0xEB1A1A2E);
-  Color get _textSecondary =>
-      _isDark ? const Color(0x8CB4B4D2) : const Color(0x8C5A5A7E);
-  Color get _activeCard =>
-      _isDark ? const Color(0xFF252542) : const Color(0x18000020);
-  Color get _activeBorder =>
-      _isDark ? const Color(0x1AFFFFFF) : const Color(0x1A000000);
-  Color get _iconAlpha =>
-      _isDark ? Colors.white.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.4);
-  Color get _subtleAlpha =>
-      _isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.04);
-  Color get _borderAlpha =>
-      _isDark ? Colors.white.withValues(alpha: 0.06) : Colors.black.withValues(alpha: 0.06);
-  Color get _shimmerBase =>
-      _isDark ? const Color(0xFF1C1C34) : const Color(0xFFD4D4E0);
-  Color get _shimmerHighlight =>
-      _isDark ? const Color(0xFF282848) : const Color(0xFFE8E8F4);
+  Color get _textPrimary    => _isDark ? const Color(0xEBF0F0FF) : const Color(0xEB1A1A2E);
+  Color get _textSecondary  => _isDark ? const Color(0x8CB4B4D2) : const Color(0x8C5A5A7E);
+  Color get _activeCard     => _isDark ? const Color(0xFF252542) : Colors.white;
+  Color get _activeBorder   => _isDark ? const Color(0x30FFFFFF) : const Color(0x14000000);
+  Color get _iconAlpha      => _isDark
+      ? Colors.white.withValues(alpha: 0.5)
+      : Colors.black.withValues(alpha: 0.4);
+  Color get _subtleAlpha    => _isDark
+      ? Colors.white.withValues(alpha: 0.04)
+      : Colors.black.withValues(alpha: 0.04);
+  Color get _borderAlpha    => _isDark
+      ? Colors.white.withValues(alpha: 0.06)
+      : Colors.black.withValues(alpha: 0.06);
+  Color get _shimmerBase      => _isDark ? const Color(0xFF1C1C34) : const Color(0xFFD4D4E0);
+  Color get _shimmerHighlight => _isDark ? const Color(0xFF282848) : const Color(0xFFE8E8F4);
 
   // ── Header ──────────────────────────────────────────────────
   Widget _buildHeader() {
@@ -179,8 +206,7 @@ class _SongsScreenState extends State<SongsScreen>
             GestureDetector(
               onTap: _toggleSearch,
               child: Container(
-                width: 38,
-                height: 38,
+                width: 38, height: 38,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: _showSearch
@@ -190,8 +216,7 @@ class _SongsScreenState extends State<SongsScreen>
                 ),
                 child: Icon(
                   _showSearch ? Icons.close_rounded : Icons.search_rounded,
-                  color: _iconAlpha,
-                  size: 18,
+                  color: _iconAlpha, size: 18,
                 ),
               ),
             ),
@@ -218,17 +243,18 @@ class _SongsScreenState extends State<SongsScreen>
           decoration: InputDecoration(
             hintText: 'Search songs, artists...',
             hintStyle: TextStyle(color: _iconAlpha.withValues(alpha: 0.4), fontSize: 14),
-            prefixIcon: Icon(Icons.search, color: _iconAlpha.withValues(alpha: 0.4), size: 20),
+            prefixIcon:
+            Icon(Icons.search, color: _iconAlpha.withValues(alpha: 0.4), size: 20),
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
-                    icon: Icon(Icons.clear,
-                        color: _iconAlpha.withValues(alpha: 0.5), size: 18),
-                    onPressed: () {
-                      _searchController.clear();
-                      context.read<SongsBloc>().add(ClearSearch());
-                      setState(() {});
-                    },
-                  )
+              icon: Icon(Icons.clear,
+                  color: _iconAlpha.withValues(alpha: 0.5), size: 18),
+              onPressed: () {
+                _searchController.clear();
+                context.read<SongsBloc>().add(ClearSearch());
+                setState(() {});
+              },
+            )
                 : null,
             filled: true,
             fillColor: Colors.transparent,
@@ -253,52 +279,72 @@ class _SongsScreenState extends State<SongsScreen>
 
   // ── Song list ───────────────────────────────────────────────
   Widget _buildSongList(List<Song> songs) {
-    final playerState = context.watch<PlayerBloc>().state;
-    final currentSongId = playerState.currentSong?.id;
-    final isPlaying = playerState is PlayerPlaying;
+    return BlocBuilder<PlayerBloc, PlayerState>(
+      builder: (context, playerState) {
+        final currentSongId = playerState.currentSong?.id;
+        final isPlaying     = playerState is PlayerPlaying;
+        final activeIndex   = songs.indexWhere((s) => s.id == currentSongId);
 
-    return RefreshIndicator(
-      color: _textPrimary,
-      backgroundColor: _activeCard,
-      onRefresh: () async {
-        context.read<SongsBloc>().add(RefreshSongs());
+        // Trigger centering whenever the playing song changes
+        if (currentSongId != null &&
+            currentSongId != _lastCenteredSongId &&
+            activeIndex != -1) {
+          _lastCenteredSongId = currentSongId;
+          _centerActiveItem(activeIndex);
+        }
+
+        return RefreshIndicator(
+          color: _textPrimary,
+          backgroundColor: _activeCard,
+          onRefresh: () async => context.read<SongsBloc>().add(RefreshSongs()),
+          child: ListView.builder(
+            controller: _scrollController,
+            // Extra vertical padding so first/last items can scroll to center
+            padding: EdgeInsets.symmetric(
+              vertical: MediaQuery.of(context).size.height * 0.38,
+            ),
+            itemCount: songs.length,
+            itemBuilder: (context, index) {
+              _itemKeys.putIfAbsent(index, () => GlobalKey());
+
+              final delay = index * 0.06;
+              final start = (0.1 + delay).clamp(0.0, 0.95);
+              final end   = (start + 0.35).clamp(0.0, 1.0);
+
+              final isActive     = songs[index].id == currentSongId;
+              final isNowPlaying = isActive && isPlaying;
+
+              return FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: _entryController,
+                  curve: Interval(start, end, curve: Curves.easeOut),
+                ),
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.45, 0.35),
+                    end: Offset.zero,
+                  ).animate(CurvedAnimation(
+                    parent: _entryController,
+                    curve: Interval(start, end, curve: Curves.easeOutCubic),
+                  )),
+                  child: _buildSongItem(
+                    itemKey: _itemKeys[index]!,
+                    song: songs[index],
+                    index: index,
+                    isActive: isActive,
+                    isNowPlaying: isNowPlaying,
+                    playlist: songs,
+                  ),
+                ),
+              );
+            },
+          ),
+        );
       },
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        itemCount: songs.length,
-        itemBuilder: (context, index) {
-          final delay = index * 0.07;
-          final start = (0.15 + delay).clamp(0.0, 1.0);
-          final end = (0.55 + delay).clamp(0.0, 1.0);
-
-          return FadeTransition(
-            opacity: CurvedAnimation(
-              parent: _entryController,
-              curve: Interval(start, end, curve: Curves.easeOut),
-            ),
-            child: SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, 0.3),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(
-                parent: _entryController,
-                curve: Interval(start, end, curve: Curves.easeOut),
-              )),
-              child: _buildSongItem(
-                songs[index],
-                index,
-                songs[index].id == currentSongId,
-                songs[index].id == currentSongId && isPlaying,
-                songs,
-              ),
-            ),
-          );
-        },
-      ),
     );
   }
 
-  // ── Song item (explore style) ───────────────────────────────
+  // ── Mini EQ animation ────────────────────────────────────────
   Widget _buildMiniEq() {
     return AnimatedBuilder(
       animation: _eqController,
@@ -306,13 +352,13 @@ class _SongsScreenState extends State<SongsScreen>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: List.generate(3, (i) {
-          final h = 6.0 + sin(_eqController.value * pi + i * 1.2) * 6;
+          final h = 5.0 + sin(_eqController.value * pi + i * 1.2) * 5;
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 1),
             width: 3,
-            height: h.clamp(3.0, 14.0),
+            height: h.clamp(3.0, 12.0),
             decoration: BoxDecoration(
-              color: _textPrimary.withValues(alpha: 0.6),
+              color: _textPrimary.withValues(alpha: 0.7),
               borderRadius: BorderRadius.circular(1.5),
             ),
           );
@@ -321,39 +367,44 @@ class _SongsScreenState extends State<SongsScreen>
     );
   }
 
-  Widget _buildSongItem(
-      Song song, int index, bool isActive, bool isNowPlaying, List<Song> playlist) {
-    final p = index % 7;
-    final screenW = MediaQuery.of(context).size.width;
+  // ── Song item ──────────────────────────────────────────────
+  Widget _buildSongItem({
+    required GlobalKey itemKey,
+    required Song song,
+    required int index,
+    required bool isActive,
+    required bool isNowPlaying,
+    required List<Song> playlist,
+  }) {
+    final p          = index % 7;
+    final screenW    = MediaQuery.of(context).size.width;
     final marginLeft = _margins[p] * screenW;
-    final artSize = _artSizes[p];
-    final artOnRight = _artOnRight[p];
+    final artSize    = _artSizes[p];
 
     final art = ExploreAlbumArt(variant: p, size: artSize);
 
-    final text = Column(
-      crossAxisAlignment:
-          artOnRight ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+    final textColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           song.title,
           style: TextStyle(
-            fontSize: isActive ? 16 : 14,
+            fontSize: isActive ? 17 : 15,
             fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
             color: isActive
                 ? _textPrimary
-                : _textPrimary.withValues(alpha: 0.65),
-            letterSpacing: 0.2,
+                : _textPrimary.withValues(alpha: 0.9),
+            letterSpacing: 0.1,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 3),
         Text(
           song.artist,
           style: TextStyle(
-            fontSize: 11,
+            fontSize: isActive ? 12.5 : 11.5,
             color: _textSecondary,
             fontWeight: FontWeight.w400,
             letterSpacing: 0.3,
@@ -364,78 +415,115 @@ class _SongsScreenState extends State<SongsScreen>
       ],
     );
 
-    final playPill = isActive
-        ? Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              color: _subtleAlpha.withValues(alpha: 0.08),
-              border: Border.all(color: _borderAlpha),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isNowPlaying) ...[
-                  _buildMiniEq(),
-                  const SizedBox(width: 8),
-                ],
-                Text(
-                  isNowPlaying ? 'Playing' : 'Play',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: _textPrimary,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-          )
-        : const SizedBox.shrink();
-
-    List<Widget> children;
-    if (artOnRight) {
-      children = [
-        if (isActive) playPill,
-        if (isActive) const SizedBox(width: 12),
-        Flexible(child: text),
-        const SizedBox(width: 14),
-        art,
-      ];
-    } else {
-      children = [
-        art,
-        const SizedBox(width: 14),
-        Flexible(child: text),
-        if (isActive) const SizedBox(width: 12),
-        if (isActive) playPill,
-      ];
-    }
-
-    return GestureDetector(
+    // Play / Playing pill — right side of active card
+    final playPill = GestureDetector(
       onTap: () {
-        context.read<PlayerBloc>().add(
-              PlaySong(song: song, playlist: playlist),
-            );
+        if (isNowPlaying) {
+          context.read<PlayerBloc>().add(PauseSong());
+        } else {
+          context.read<PlayerBloc>()
+              .add(PlaySong(song: song, playlist: playlist));
+        }
       },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-        margin: EdgeInsets.only(left: marginLeft, bottom: 8),
-        padding: EdgeInsets.symmetric(
-          horizontal: isActive ? 16 : 8,
-          vertical: isActive ? 10 : 6,
-        ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(isActive ? 40 : 20),
-          color: isActive ? _activeCard : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          color: _isDark
+              ? Colors.white.withValues(alpha: 0.07)
+              : Colors.black.withValues(alpha: 0.04),
           border: Border.all(
-            color: isActive ? _activeBorder : Colors.transparent,
+            color: _isDark
+                ? Colors.white.withValues(alpha: 0.14)
+                : Colors.black.withValues(alpha: 0.08),
           ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          children: children,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (isNowPlaying) ...[
+              _buildMiniEq(),
+              const SizedBox(width: 7),
+            ],
+            Text(
+              isNowPlaying ? 'Playing' : 'Play',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: _textPrimary,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    return GestureDetector(
+      key: itemKey,
+      onTap: () => context.read<PlayerBloc>()
+          .add(PlaySong(song: song, playlist: playlist)),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+        // Active: keep margin but extend to right edge for full-width card
+        // Inactive: compact diagonal offset
+        margin: EdgeInsets.only(
+          left: isActive ? 16 : marginLeft,
+          right: 16,
+          bottom: isActive ? 14 : 10,
+        ),
+        padding: EdgeInsets.symmetric(
+          horizontal: isActive ? 16 : 12,
+          vertical:   isActive ? 13 : 10,
+        ),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(isActive ? 50 : 28),
+          color: isActive
+              ? _activeCard
+              : (_isDark
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : Colors.white.withValues(alpha: 0.6)),
+          border: Border.all(
+            color: isActive
+                ? _activeBorder
+                : (_isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.06)),
+            width: 1.0,
+          ),
+          boxShadow: [
+            if (isActive)
+              BoxShadow(
+                color: _isDark
+                    ? Colors.black.withValues(alpha: 0.45)
+                    : Colors.black.withValues(alpha: 0.10),
+                blurRadius: 24,
+                offset: const Offset(0, 6),
+              )
+            else
+              BoxShadow(
+                color: _isDark
+                    ? Colors.black.withValues(alpha: 0.2)
+                    : Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.max,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            art,
+            const SizedBox(width: 12),
+            Flexible(child: textColumn),
+            if (isActive) ...[
+              const SizedBox(width: 8),
+              playPill,
+            ],
+          ],
         ),
       ),
     );
@@ -447,44 +535,38 @@ class _SongsScreenState extends State<SongsScreen>
       baseColor: _shimmerBase,
       highlightColor: _shimmerHighlight,
       child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.only(top: 12, bottom: 24),
         itemCount: 8,
         itemBuilder: (_, index) {
-          final p = index % 7;
+          final p       = index % 7;
           final screenW = MediaQuery.of(context).size.width;
           return Padding(
-            padding: EdgeInsets.only(left: _margins[p] * screenW, bottom: 8),
+            padding: EdgeInsets.only(
+                left: _margins[p] * screenW, right: 16, bottom: 10),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: _artSizes[p],
-                  height: _artSizes[p],
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _shimmerBase,
-                  ),
+                  width: _artSizes[p], height: _artSizes[p],
+                  decoration:
+                  BoxDecoration(shape: BoxShape.circle, color: _shimmerBase),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 12),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      width: 90,
-                      height: 12,
+                      width: 90, height: 12,
                       decoration: BoxDecoration(
-                        color: _shimmerBase,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
+                          color: _shimmerBase,
+                          borderRadius: BorderRadius.circular(6)),
                     ),
                     const SizedBox(height: 6),
                     Container(
-                      width: 55,
-                      height: 10,
+                      width: 55, height: 10,
                       decoration: BoxDecoration(
-                        color: _shimmerBase,
-                        borderRadius: BorderRadius.circular(5),
-                      ),
+                          color: _shimmerBase,
+                          borderRadius: BorderRadius.circular(5)),
                     ),
                   ],
                 ),
@@ -507,17 +589,11 @@ class _SongsScreenState extends State<SongsScreen>
           const SizedBox(height: 16),
           Text(title,
               style: TextStyle(
-                color: _textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              )),
+                  color: _textPrimary, fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Text(subtitle,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: _textSecondary,
-                fontSize: 14,
-              )),
+              style: TextStyle(color: _textSecondary, fontSize: 14)),
         ],
       ),
     );
@@ -534,13 +610,9 @@ class _SongsScreenState extends State<SongsScreen>
           const SizedBox(height: 16),
           Text('Permission Required',
               style: TextStyle(
-                color: _textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              )),
+                  color: _textPrimary, fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
-          Text(
-              'PlayBeats needs access to your\naudio files to play music',
+          Text('PlayBeats needs access to your\naudio files to play music',
               textAlign: TextAlign.center,
               style: TextStyle(color: _textSecondary, fontSize: 14)),
           const SizedBox(height: 24),
@@ -565,10 +637,7 @@ class _SongsScreenState extends State<SongsScreen>
           const SizedBox(height: 16),
           Text('Something went wrong',
               style: TextStyle(
-                color: _textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              )),
+                  color: _textPrimary, fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
           Text(message,
               textAlign: TextAlign.center,
@@ -584,7 +653,7 @@ class _SongsScreenState extends State<SongsScreen>
     );
   }
 
-  // ── Shared pill button for states ───────────────────────────
+  // ── Shared action button ─────────────────────────────────────
   Widget _buildActionButton({
     required IconData icon,
     required String label,
@@ -606,9 +675,7 @@ class _SongsScreenState extends State<SongsScreen>
             const SizedBox(width: 8),
             Text(label,
                 style: TextStyle(
-                  color: _textPrimary,
-                  fontWeight: FontWeight.w600,
-                )),
+                    color: _textPrimary, fontWeight: FontWeight.w600)),
           ],
         ),
       ),

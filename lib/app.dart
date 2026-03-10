@@ -10,9 +10,7 @@ import 'package:play_beats/features/browse/bloc/browse_bloc.dart';
 import 'package:play_beats/features/favorites/bloc/favorites_bloc.dart';
 import 'package:play_beats/features/favorites/bloc/favorites_event.dart';
 import 'package:play_beats/features/player/bloc/player_bloc.dart';
-import 'package:play_beats/data/services/hive_service.dart';
-import 'package:play_beats/features/onboarding/screens/onboarding_screen.dart';
-import 'package:play_beats/features/shell/screens/app_shell.dart';
+import 'package:play_beats/features/splash/screens/splash_screen.dart';
 import 'package:play_beats/features/songs/bloc/songs_bloc.dart';
 
 class PlayBeatsApp extends StatelessWidget {
@@ -62,9 +60,7 @@ class PlayBeatsApp extends StatelessWidget {
               theme: AppTheme.lightTheme,
               darkTheme: AppTheme.darkTheme,
               themeMode: themeMode,
-              home: HiveService.isOnboardingComplete
-                  ? const AppShell()
-                  : const OnboardingScreen(),
+              home: const SplashScreen(),
             );
           },
         ),
