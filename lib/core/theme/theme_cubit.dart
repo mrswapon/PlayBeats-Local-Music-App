@@ -9,13 +9,13 @@ class ThemeCubit extends Cubit<ThemeMode> {
   static ThemeMode _loadSaved() {
     final idx = HiveService.settingsBox
         .get(AppConstants.themeModeKey, defaultValue: 0);
-    return idx == 1 ? ThemeMode.light : ThemeMode.dark;
+    return idx == 1 ? ThemeMode.dark : ThemeMode.light;
   }
 
   void toggle() {
     final next = state == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
     HiveService.settingsBox
-        .put(AppConstants.themeModeKey, next == ThemeMode.light ? 1 : 0);
+        .put(AppConstants.themeModeKey, next == ThemeMode.dark ? 1 : 0);
     emit(next);
   }
 }

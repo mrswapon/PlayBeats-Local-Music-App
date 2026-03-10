@@ -76,7 +76,7 @@ class _SplashScreenState extends State<SplashScreen>
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (_, __, ___) => destination,
-        transitionDuration: const Duration(seconds: 2),
+        transitionDuration: const Duration(seconds: 12),
         transitionsBuilder: (_, animation, __, child) {
           return FadeTransition(opacity: animation, child: child);
         },
@@ -107,10 +107,10 @@ class _SplashScreenState extends State<SplashScreen>
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF0F0F1A),
-              Color(0xFF151528),
-              Color(0xFF1A1A30),
-              Color(0xFF0F0F1A),
+              Color(0xFFF5F5FC),
+              Color(0xFFEEEEF8),
+              Color(0xFFF0F0FA),
+              Color(0xFFF5F5FC),
             ],
             stops: [0, 0.3, 0.6, 1],
           ),
@@ -146,8 +146,8 @@ class _SplashScreenState extends State<SplashScreen>
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF4A4A8A)
-                                    .withValues(alpha: 0.15 + glow * 0.15),
+                                color: const Color(0xFF8A8ABB)
+                                    .withValues(alpha: 0.12 + glow * 0.12),
                                 blurRadius: 40 + glow * 20,
                                 spreadRadius: 5 + glow * 10,
                               ),
@@ -201,7 +201,7 @@ class _SplashScreenState extends State<SplashScreen>
                         style: TextStyle(
                           fontSize: 34,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xF0F0F0FA),
+                          color: Color(0xFF1A1A2E),
                           letterSpacing: 1.5,
                         ),
                       ),
@@ -211,7 +211,7 @@ class _SplashScreenState extends State<SplashScreen>
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w400,
-                          color: Color(0x88B4B4D2),
+                          color: Color(0xFF8A8A9E),
                           letterSpacing: 2.0,
                         ),
                       ),
@@ -243,11 +243,11 @@ class _SplashVinylPainter extends CustomPainter {
       Paint()
         ..shader = RadialGradient(
           colors: const [
-            Color(0xFF2A2A3C),
-            Color(0xFF1A1A28),
-            Color(0xFF111118),
-            Color(0xFF1A1A28),
-            Color(0xFF0E0E16),
+            Color(0xFF4A4A5C),
+            Color(0xFF3A3A4C),
+            Color(0xFF2E2E3E),
+            Color(0xFF3A3A4C),
+            Color(0xFF282838),
           ],
           stops: const [0, 0.25, 0.5, 0.75, 1],
         ).createShader(Rect.fromCircle(center: c, radius: r)),
@@ -297,7 +297,7 @@ class _SplashVinylPainter extends CustomPainter {
     );
 
     // Center label
-    canvas.drawCircle(c, r * 0.2, Paint()..color = const Color(0xFF3A3A50));
+    canvas.drawCircle(c, r * 0.2, Paint()..color = const Color(0xFF5A5A70));
     canvas.drawCircle(
       c,
       r * 0.2,
@@ -316,8 +316,8 @@ class _SplashVinylPainter extends CustomPainter {
     );
 
     // Center spindle
-    canvas.drawCircle(c, r * 0.05, Paint()..color = const Color(0xFFE0E0EC));
-    canvas.drawCircle(c, r * 0.02, Paint()..color = const Color(0xFF1C1C28));
+    canvas.drawCircle(c, r * 0.05, Paint()..color = const Color(0xFFF0F0FC));
+    canvas.drawCircle(c, r * 0.02, Paint()..color = const Color(0xFF3A3A4C));
 
     // Rim
     canvas.drawCircle(
