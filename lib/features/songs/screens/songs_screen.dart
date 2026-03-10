@@ -6,7 +6,9 @@ import 'package:play_beats/features/player/bloc/player_event.dart';
 import 'package:play_beats/features/songs/bloc/songs_bloc.dart';
 import 'package:play_beats/features/songs/bloc/songs_event.dart';
 import 'package:play_beats/features/songs/bloc/songs_state.dart';
+import 'package:play_beats/features/player/bloc/player_state.dart';
 import 'package:play_beats/features/songs/widgets/explore_album_art.dart';
+import 'dart:math';
 import 'package:shimmer/shimmer.dart';
 
 // ─── Layout patterns (cycle index % 7) ───────────────────────
@@ -23,12 +25,13 @@ class SongsScreen extends StatefulWidget {
 }
 
 class _SongsScreenState extends State<SongsScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
   bool _showSearch = false;
 
   late final AnimationController _entryController;
+  late final AnimationController _eqController;
 
   @override
   void initState() {
@@ -37,6 +40,10 @@ class _SongsScreenState extends State<SongsScreen>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
+    _eqController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    )..repeat(reverse: true);
     context.read<SongsBloc>().add(LoadAllSongs());
   }
 
@@ -45,6 +52,7 @@ class _SongsScreenState extends State<SongsScreen>
     _searchController.dispose();
     _searchFocusNode.dispose();
     _entryController.dispose();
+    _eqController.dispose();
     super.dispose();
   }
 
@@ -247,6 +255,7 @@ class _SongsScreenState extends State<SongsScreen>
   Widget _buildSongList(List<Song> songs) {
     final playerState = context.watch<PlayerBloc>().state;
     final currentSongId = playerState.currentSong?.id;
+    final isPlaying = playerState is PlayerPlaying;
 
     return RefreshIndicator(
       color: _textPrimary,
@@ -279,6 +288,7 @@ class _SongsScreenState extends State<SongsScreen>
                 songs[index],
                 index,
                 songs[index].id == currentSongId,
+                songs[index].id == currentSongId && isPlaying,
                 songs,
               ),
             ),
@@ -289,8 +299,30 @@ class _SongsScreenState extends State<SongsScreen>
   }
 
   // ── Song item (explore style) ───────────────────────────────
+  Widget _buildMiniEq() {
+    return AnimatedBuilder(
+      animation: _eqController,
+      builder: (_, __) => Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: List.generate(3, (i) {
+          final h = 6.0 + sin(_eqController.value * pi + i * 1.2) * 6;
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 1),
+            width: 3,
+            height: h.clamp(3.0, 14.0),
+            decoration: BoxDecoration(
+              color: _textPrimary.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(1.5),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
   Widget _buildSongItem(
-      Song song, int index, bool isActive, List<Song> playlist) {
+      Song song, int index, bool isActive, bool isNowPlaying, List<Song> playlist) {
     final p = index % 7;
     final screenW = MediaQuery.of(context).size.width;
     final marginLeft = _margins[p] * screenW;
@@ -334,20 +366,29 @@ class _SongsScreenState extends State<SongsScreen>
 
     final playPill = isActive
         ? Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
               color: _subtleAlpha.withValues(alpha: 0.08),
               border: Border.all(color: _borderAlpha),
             ),
-            child: Text(
-              'Play',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: _textPrimary,
-                letterSpacing: 0.5,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isNowPlaying) ...[
+                  _buildMiniEq(),
+                  const SizedBox(width: 8),
+                ],
+                Text(
+                  isNowPlaying ? 'Playing' : 'Play',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _textPrimary,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
             ),
           )
         : const SizedBox.shrink();

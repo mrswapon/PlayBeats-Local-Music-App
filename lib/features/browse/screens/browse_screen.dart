@@ -9,6 +9,7 @@ import 'package:play_beats/features/browse/bloc/browse_event.dart';
 import 'package:play_beats/features/browse/bloc/browse_state.dart';
 import 'package:play_beats/features/common/widgets/artwork_widget.dart';
 import 'package:play_beats/features/common/widgets/song_tile.dart';
+import 'package:shimmer/shimmer.dart';
 
 class BrowseScreen extends StatefulWidget {
   const BrowseScreen({super.key});
@@ -138,9 +139,9 @@ class BrowseScreenState extends State<BrowseScreen> {
             child: BlocBuilder<BrowseBloc, BrowseState>(
               builder: (context, state) {
                 if (state is BrowseLoading) {
-                  return Center(
-                    child: CircularProgressIndicator(color: c.accent),
-                  );
+                  return _showArtists
+                      ? _buildArtistShimmer()
+                      : _buildAlbumShimmer();
                 }
 
                 if (state is BrowseError) {
@@ -338,30 +339,118 @@ class BrowseScreenState extends State<BrowseScreen> {
 
   Widget _buildAlbumList(List<AlbumModel> albums) {
     final c = context.colors;
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+    return GridView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        childAspectRatio: 0.82,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+      ),
       itemCount: albums.length,
       itemBuilder: (context, index) {
         final album = albums[index];
         final name = (album.album == '<unknown>')
             ? 'Unknown Album'
             : album.album;
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: GestureDetector(
-            onTap: () {
-              context.read<BrowseBloc>().add(
-                    LoadAlbumSongs(albumId: album.id, albumName: name),
-                  );
-            },
+        return GestureDetector(
+          onTap: () {
+            context.read<BrowseBloc>().add(
+                  LoadAlbumSongs(albumId: album.id, albumName: name),
+                );
+          },
+          child: Container(
+            decoration: Neu.raised(
+              radius: 20,
+              color: c.surface,
+              shadowDark: c.shadowDark,
+              shadowLight: c.shadowLight,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: c.background,
+                    boxShadow: [
+                      BoxShadow(
+                        color: c.shadowDark,
+                        offset: const Offset(3, 3),
+                        blurRadius: 6,
+                      ),
+                      BoxShadow(
+                        color: c.shadowLight.withValues(alpha: 0.3),
+                        offset: const Offset(-2, -2),
+                        blurRadius: 5,
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: ArtworkWidget(
+                      id: album.id,
+                      size: 90,
+                      borderRadius: 45,
+                      type: ArtworkType.ALBUM,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(
+                    name,
+                    style: TextStyle(
+                      color: c.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${album.numOfSongs} songs',
+                  style: TextStyle(
+                    color: c.textSecondary,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ── Shimmer loading ───────────────────────────────────────
+  Widget _buildArtistShimmer() {
+    final c = context.colors;
+    final base = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF1C1C34)
+        : const Color(0xFFD4D4E0);
+    final highlight = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF282848)
+        : const Color(0xFFE8E8F4);
+    return Shimmer.fromColors(
+      baseColor: base,
+      highlightColor: highlight,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        itemCount: 6,
+        itemBuilder: (_, __) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              decoration: Neu.raised(
-                radius: 18,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              decoration: BoxDecoration(
                 color: c.surface,
-                shadowDark: c.shadowDark,
-                shadowLight: c.shadowLight,
+                borderRadius: BorderRadius.circular(18),
               ),
               child: Row(
                 children: [
@@ -370,62 +459,101 @@ class BrowseScreenState extends State<BrowseScreen> {
                     height: 48,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: c.background,
-                      boxShadow: [
-                        BoxShadow(
-                          color: c.shadowDark,
-                          offset: const Offset(2, 2),
-                          blurRadius: 4,
-                        ),
-                        BoxShadow(
-                          color: c.shadowLight.withValues(alpha: 0.3),
-                          offset: const Offset(-2, -2),
-                          blurRadius: 4,
-                        ),
-                      ],
-                    ),
-                    child: ClipOval(
-                      child: ArtworkWidget(
-                        id: album.id,
-                        size: 48,
-                        borderRadius: 24,
-                        type: ArtworkType.ALBUM,
-                      ),
+                      color: base,
                     ),
                   ),
                   const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          style: TextStyle(
-                            color: c.textPrimary,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 120,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: base,
+                          borderRadius: BorderRadius.circular(6),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${album.numOfSongs} songs',
-                          style: TextStyle(
-                            color: c.textSecondary,
-                            fontSize: 12,
-                          ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        width: 60,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: base,
+                          borderRadius: BorderRadius.circular(5),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  Icon(Icons.chevron_right, color: c.iconDim, size: 20),
                 ],
               ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildAlbumShimmer() {
+    final c = context.colors;
+    final base = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF1C1C34)
+        : const Color(0xFFD4D4E0);
+    final highlight = Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFF282848)
+        : const Color(0xFFE8E8F4);
+    return Shimmer.fromColors(
+      baseColor: base,
+      highlightColor: highlight,
+      child: GridView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.82,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+        ),
+        itemCount: 4,
+        itemBuilder: (_, __) {
+          return Container(
+            decoration: BoxDecoration(
+              color: c.surface,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: base,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: 80,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: base,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: 40,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: base,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
