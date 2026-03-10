@@ -14,7 +14,7 @@ import 'package:shimmer/shimmer.dart';
 
 // ─── Diagonal cascade margins (fraction of screen width) ─────
 const _margins  = [0.38, 0.22, 0.08, 0.02, 0.16, 0.28, 0.42];
-const _artSizes = [66.0, 72.0, 64.0, 74.0, 68.0, 62.0, 60.0];
+const _artSizes = [50.0, 54.0, 48.0, 56.0, 52.0, 46.0, 44.0];
 
 // ═════════════════════════════════════════════════════════════════
 class SongsScreen extends StatefulWidget {
@@ -390,7 +390,7 @@ class _SongsScreenState extends State<SongsScreen>
         Text(
           song.title,
           style: TextStyle(
-            fontSize: isActive ? 17 : 15,
+            fontSize: isActive ? 15 : 13.5,
             fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
             color: isActive
                 ? _textPrimary
@@ -404,7 +404,7 @@ class _SongsScreenState extends State<SongsScreen>
         Text(
           song.artist,
           style: TextStyle(
-            fontSize: isActive ? 12.5 : 11.5,
+            fontSize: isActive ? 11.5 : 11,
             color: _textSecondary,
             fontWeight: FontWeight.w400,
             letterSpacing: 0.3,
@@ -472,11 +472,11 @@ class _SongsScreenState extends State<SongsScreen>
         margin: EdgeInsets.only(
           left: isActive ? 16 : marginLeft,
           right: 16,
-          bottom: isActive ? 14 : 10,
+          bottom: isActive ? 10 : 7,
         ),
         padding: EdgeInsets.symmetric(
-          horizontal: isActive ? 16 : 12,
-          vertical:   isActive ? 13 : 10,
+          horizontal: isActive ? 14 : 10,
+          vertical:   isActive ? 10 : 7,
         ),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(isActive ? 50 : 28),
