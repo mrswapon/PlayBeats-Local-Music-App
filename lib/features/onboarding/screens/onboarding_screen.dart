@@ -1,18 +1,16 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:play_beats/core/theme/app_theme.dart';
 import 'package:play_beats/data/services/hive_service.dart';
 import 'package:play_beats/features/shell/screens/app_shell.dart';
 
 // ─── Onboarding-specific palette ─────────────────────────────
 class _OC {
-  static const bg1 = Color(0xFF0F0F1A);
-  static const bg2 = Color(0xFF151528);
-  static const bg3 = Color(0xFF1A1A30);
-  static const card = Color(0xFF22223A);
-  static const cardLight = Color(0xFF2C2C48);
-  static const border = Color(0x0FFFFFFF);
-  static const textBright = Color(0xF0F0F0FA);
+  static const bg1 = Color(0xFFF5F5FC);
+  static const bg2 = Color(0xFFEEEEF8);
+  static const bg3 = Color(0xFFF0F0FA);
+  static const card = Color(0xFFFFFFFF);
+  static const border = Color(0x10000000);
+  static const textBright = Color(0xFF1A1A2E);
 }
 
 class OnboardingScreen extends StatefulWidget {
@@ -123,7 +121,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             border: Border.all(color: _OC.border, width: 1),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
+                color: Colors.black.withValues(alpha: 0.08),
                 blurRadius: 40,
                 offset: const Offset(0, 20),
               ),
@@ -144,7 +142,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
                         colors: [
-                          AppTheme.accent.withValues(alpha: 0.06),
+                          const Color(0xFF6A6ABB).withValues(alpha: 0.1),
                           Colors.transparent,
                         ],
                       ),
@@ -252,7 +250,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             )),
             child: ShaderMask(
               shaderCallback: (bounds) => const LinearGradient(
-                colors: [Color(0xCCFFFFFF), Color(0x99CCCCCC)],
+                colors: [Color(0xFF2A2A3E), Color(0xFF6A6A7E)],
               ).createShader(bounds),
               child: const Text(
                 'Age Of',
@@ -318,11 +316,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           child: ElevatedButton(
             onPressed: _onGetStarted,
             style: ElevatedButton.styleFrom(
-              backgroundColor: _OC.cardLight.withValues(alpha: 0.6),
-              foregroundColor: _OC.textBright,
+              backgroundColor: const Color(0xFF1A1A2E),
+              foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
-                side: const BorderSide(color: _OC.border, width: 1),
               ),
               elevation: 0,
               shadowColor: Colors.transparent,

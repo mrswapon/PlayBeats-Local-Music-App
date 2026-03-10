@@ -60,53 +60,108 @@ class _AppShellState extends State<AppShell> {
 // ═════════════════════════════════════════════════════════════════
 //  BOTTOM NAV BAR
 // ═════════════════════════════════════════════════════════════════
-class _BottomNavBar extends StatelessWidget {
+class _BottomNavBar extends StatefulWidget {
   final int selected;
   final ValueChanged<int> onTap;
 
   const _BottomNavBar({required this.selected, required this.onTap});
 
-  static const _labels = ['Home', 'Browse', 'Saved'];
+  @override
+  State<_BottomNavBar> createState() => _BottomNavBarState();
+}
+
+class _BottomNavBarState extends State<_BottomNavBar>
+    with TickerProviderStateMixin {
+  static const _labels = ['Songs', 'Browse', 'Saved'];
+  late final List<AnimationController> _tabControllers;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabControllers = List.generate(
+      3,
+      (i) => AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 380),
+        value: i == widget.selected ? 1.0 : 0.0,
+      ),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _BottomNavBar old) {
+    super.didUpdateWidget(old);
+    if (old.selected != widget.selected) {
+      for (int i = 0; i < 3; i++) {
+        if (i == widget.selected) {
+          _tabControllers[i].forward();
+        } else {
+          _tabControllers[i].reverse();
+        }
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final c in _tabControllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     return Container(
-      margin: const EdgeInsets.fromLTRB(24, 0, 24, 10),
+      margin: const EdgeInsets.fromLTRB(32, 0, 32, 32),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: c.shadowDark,
-            offset: const Offset(0, 6),
-            blurRadius: 18,
+            color: c.accent.withValues(alpha: 0.04),
+            offset: const Offset(0, 2),
+            blurRadius: 20,
+            spreadRadius: 2,
           ),
           BoxShadow(
-            color: c.shadowLight,
-            offset: const Offset(0, -2),
-            blurRadius: 8,
+            color: c.shadowDark.withValues(alpha: 0.35),
+            offset: const Offset(0, 8),
+            blurRadius: 24,
+          ),
+          BoxShadow(
+            color: c.shadowLight.withValues(alpha: 0.5),
+            offset: const Offset(0, -1),
+            blurRadius: 4,
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(26),
+        borderRadius: BorderRadius.circular(16),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            height: 78,
+            padding: const EdgeInsets.symmetric(vertical: 6),
             decoration: BoxDecoration(
-              color: c.surface.withValues(alpha: 0.85),
-              borderRadius: BorderRadius.circular(26),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  c.surface.withValues(alpha: 0.95),
+                  c.surface.withValues(alpha: 0.82),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: c.accent.withValues(alpha: 0.06),
+                color: c.accent.withValues(alpha: 0.05),
+                width: 0.8,
               ),
             ),
             child: Row(
               children: List.generate(3, (i) {
-                return Expanded(
-                  child: _navItem(context, i, c),
-                );
+                return Expanded(child: _buildNavItem(i, c));
               }),
             ),
           ),
@@ -115,57 +170,88 @@ class _BottomNavBar extends StatelessWidget {
     );
   }
 
-  Widget _navItem(BuildContext context, int index, AppColors c) {
-    final isActive = selected == index;
-    final icon = _iconForIndex(index, isActive, c);
+  Widget _buildNavItem(int index, AppColors c) {
+    final anim = CurvedAnimation(
+      parent: _tabControllers[index],
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
 
     return GestureDetector(
-      onTap: () => onTap(index),
+      onTap: () => widget.onTap(index),
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOutCubic,
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        padding: EdgeInsets.symmetric(
-          vertical: isActive ? 10 : 12,
-        ),
-        decoration: isActive
-            ? BoxDecoration(
-                color: c.accent.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: c.accent.withValues(alpha: 0.12),
+      child: AnimatedBuilder(
+        animation: anim,
+        builder: (context, _) {
+          final t = anim.value;
+
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: t > 0.01
+                  ? LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        c.accent.withValues(alpha: 0.06 * t),
+                        c.accent.withValues(alpha: 0.12 * t),
+                      ],
+                    )
+                  : null,
+              border: t > 0.01
+                  ? Border.all(
+                      color: c.accent.withValues(alpha: 0.08 * t),
+                      width: 0.6,
+                    )
+                  : null,
+              boxShadow: t > 0.5
+                  ? [
+                      BoxShadow(
+                        color: c.accent.withValues(alpha: 0.08 * t),
+                        blurRadius: 14,
+                        spreadRadius: -3,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Icon with smooth scale
+                Transform.scale(
+                  scale: 1.0 + 0.1 * t,
+                  child: _iconForIndex(index, t > 0.5, c),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: c.accent.withValues(alpha: 0.08),
-                    blurRadius: 12,
-                    spreadRadius: -2,
+
+                // Label slides in/out
+                ClipRect(
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    heightFactor: t,
+                    child: Opacity(
+                      opacity: t,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          _labels[index],
+                          style: TextStyle(
+                            color: c.accent,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ],
-              )
-            : BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(20),
-              ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            icon,
-            if (isActive) ...[
-              const SizedBox(height: 4),
-              Text(
-                _labels[index],
-                style: TextStyle(
-                  color: c.accent,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.3,
                 ),
-              ),
-            ],
-          ],
-        ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -174,10 +260,10 @@ class _BottomNavBar extends StatelessWidget {
     switch (index) {
       case 0:
         return SizedBox(
-          width: 24,
-          height: 24,
+          width: 22,
+          height: 22,
           child: CustomPaint(
-            painter: _HomePainter(
+            painter: _VinylNavPainter(
               active: active,
               activeColor: c.accent,
               inactiveColor: c.iconDim,
@@ -186,8 +272,8 @@ class _BottomNavBar extends StatelessWidget {
         );
       case 1:
         return SizedBox(
-          width: 26,
-          height: 26,
+          width: 22,
+          height: 22,
           child: CustomPaint(
             painter: _PlanetPainter(
               active: active,
@@ -199,9 +285,9 @@ class _BottomNavBar extends StatelessWidget {
       case 2:
         return SizedBox(
           width: 22,
-          height: 24,
+          height: 22,
           child: CustomPaint(
-            painter: _BookmarkPainter(
+            painter: _HeartPainter(
               active: active,
               activeColor: c.accent,
               inactiveColor: c.iconDim,
@@ -214,12 +300,12 @@ class _BottomNavBar extends StatelessWidget {
   }
 }
 
-// ─── Home Painter ────────────────────────────────────────────────
-class _HomePainter extends CustomPainter {
+// ─── Vinyl Disc (Home) ──────────────────────────────────────────
+class _VinylNavPainter extends CustomPainter {
   final bool active;
   final Color activeColor;
   final Color inactiveColor;
-  _HomePainter(
+  _VinylNavPainter(
       {required this.active,
       required this.activeColor,
       required this.inactiveColor});
@@ -227,53 +313,59 @@ class _HomePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final color = active ? activeColor : inactiveColor;
-    final w = size.width;
-    final h = size.height;
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final r = size.width / 2 - 1;
 
-    final strokePaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
-
-    // Roof
-    final roof = Path()
-      ..moveTo(w * 0.1, h * 0.45)
-      ..lineTo(w * 0.5, h * 0.08)
-      ..lineTo(w * 0.9, h * 0.45);
-    canvas.drawPath(roof, strokePaint);
-
-    // Walls
-    final walls = Path()
-      ..moveTo(w * 0.2, h * 0.42)
-      ..lineTo(w * 0.2, h * 0.88)
-      ..lineTo(w * 0.8, h * 0.88)
-      ..lineTo(w * 0.8, h * 0.42);
-    canvas.drawPath(walls, strokePaint);
-
-    // Door – filled when active
-    final door = Path()
-      ..moveTo(w * 0.4, h * 0.88)
-      ..lineTo(w * 0.4, h * 0.62)
-      ..lineTo(w * 0.6, h * 0.62)
-      ..lineTo(w * 0.6, h * 0.88);
+    // Filled disc background when active
     if (active) {
-      canvas.drawPath(
-        door,
+      canvas.drawCircle(
+        Offset(cx, cy),
+        r,
         Paint()
-          ..color = color.withValues(alpha: 0.3)
+          ..color = color.withValues(alpha: 0.15)
           ..style = PaintingStyle.fill,
       );
     }
-    canvas.drawPath(door, strokePaint);
+
+    // Outer ring
+    canvas.drawCircle(
+      Offset(cx, cy),
+      r,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.8,
+    );
+
+    // Grooves
+    for (var i = 1; i <= 3; i++) {
+      canvas.drawCircle(
+        Offset(cx, cy),
+        r * (0.3 + i * 0.15),
+        Paint()
+          ..color = color.withValues(alpha: active ? 0.3 : 0.2)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.5,
+      );
+    }
+
+    // Center hole
+    canvas.drawCircle(
+      Offset(cx, cy),
+      r * 0.14,
+      Paint()
+        ..color = color
+        ..style = active ? PaintingStyle.fill : PaintingStyle.stroke
+        ..strokeWidth = 1.4,
+    );
   }
 
   @override
-  bool shouldRepaint(covariant _HomePainter old) => old.active != active;
+  bool shouldRepaint(covariant _VinylNavPainter old) => old.active != active;
 }
 
-// ─── Planet / Saturn Painter ─────────────────────────────────────
+// ─── Planet / Saturn (Browse) ───────────────────────────────────
 class _PlanetPainter extends CustomPainter {
   final bool active;
   final Color activeColor;
@@ -291,12 +383,15 @@ class _PlanetPainter extends CustomPainter {
     final cx = w * 0.5;
     final cy = h * 0.5;
 
-    // Planet body (filled for active, stroke for inactive)
-    final planetPaint = Paint()
-      ..color = color
-      ..style = active ? PaintingStyle.fill : PaintingStyle.stroke
-      ..strokeWidth = 1.8;
-    canvas.drawCircle(Offset(cx, cy), w * 0.26, planetPaint);
+    // Planet body
+    canvas.drawCircle(
+      Offset(cx, cy),
+      w * 0.26,
+      Paint()
+        ..color = color
+        ..style = active ? PaintingStyle.fill : PaintingStyle.stroke
+        ..strokeWidth = 1.8,
+    );
 
     // Ring (tilted ellipse)
     final ringPaint = Paint()
@@ -323,12 +418,12 @@ class _PlanetPainter extends CustomPainter {
   bool shouldRepaint(covariant _PlanetPainter old) => old.active != active;
 }
 
-// ─── Bookmark Painter ────────────────────────────────────────────
-class _BookmarkPainter extends CustomPainter {
+// ─── Heart (Saved) ──────────────────────────────────────────────
+class _HeartPainter extends CustomPainter {
   final bool active;
   final Color activeColor;
   final Color inactiveColor;
-  _BookmarkPainter(
+  _HeartPainter(
       {required this.active,
       required this.activeColor,
       required this.inactiveColor});
@@ -340,18 +435,20 @@ class _BookmarkPainter extends CustomPainter {
     final h = size.height;
 
     final path = Path()
-      ..moveTo(w * 0.15, h * 0.08)
-      ..lineTo(w * 0.15, h * 0.92)
-      ..lineTo(w * 0.5, h * 0.72)
-      ..lineTo(w * 0.85, h * 0.92)
-      ..lineTo(w * 0.85, h * 0.08)
+      ..moveTo(w * 0.5, h * 0.35)
+      ..cubicTo(w * 0.5, h * 0.2, w * 0.35, h * 0.1, w * 0.25, h * 0.1)
+      ..cubicTo(w * 0.1, h * 0.1, w * 0.02, h * 0.25, w * 0.02, h * 0.38)
+      ..cubicTo(w * 0.02, h * 0.55, w * 0.2, h * 0.7, w * 0.5, h * 0.9)
+      ..cubicTo(w * 0.8, h * 0.7, w * 0.98, h * 0.55, w * 0.98, h * 0.38)
+      ..cubicTo(w * 0.98, h * 0.25, w * 0.9, h * 0.1, w * 0.75, h * 0.1)
+      ..cubicTo(w * 0.65, h * 0.1, w * 0.5, h * 0.2, w * 0.5, h * 0.35)
       ..close();
 
     if (active) {
       canvas.drawPath(
         path,
         Paint()
-          ..color = color.withValues(alpha: 0.25)
+          ..color = color.withValues(alpha: 0.2)
           ..style = PaintingStyle.fill,
       );
     }
@@ -368,5 +465,5 @@ class _BookmarkPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _BookmarkPainter old) => old.active != active;
+  bool shouldRepaint(covariant _HeartPainter old) => old.active != active;
 }
