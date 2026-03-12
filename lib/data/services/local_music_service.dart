@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:on_audio_query/on_audio_query.dart';
-import 'package:permission_handler/permission_handler.dart';
 
 class LocalMusicService {
   final OnAudioQuery _audioQuery = OnAudioQuery();
@@ -9,23 +8,24 @@ class LocalMusicService {
   /// Request the appropriate permission for the platform/SDK version.
   /// Returns true if granted.
   Future<bool> requestPermission() async {
-    if (Platform.isAndroid) {
-      // Android 13+ uses READ_MEDIA_AUDIO, older uses READ_EXTERNAL_STORAGE
-      final permission = await _audioQuery.permissionsStatus();
-      if (permission) return true;
+    try {
+      if (Platform.isAndroid) {
+        // First check if already granted
+        final permission = await _audioQuery.permissionsStatus();
+        if (permission) return true;
 
-      // Try the on_audio_query built-in request first
-      final granted = await _audioQuery.permissionsRequest();
-      if (granted) return true;
+        // Request permission using on_audio_query (handles request codes properly)
+        final granted = await _audioQuery.permissionsRequest();
+        if (granted) return true;
 
-      // Fallback to permission_handler
-      final status = await Permission.audio.request();
-      if (status.isGranted) return true;
-
-      final storageStatus = await Permission.storage.request();
-      return storageStatus.isGranted;
+        // Double check after request
+        return await _audioQuery.permissionsStatus();
+      }
+      return true;
+    } catch (e) {
+      // If permission request fails, assume denied
+      return false;
     }
-    return true;
   }
 
   /// Get all songs on the device, filtering out short clips (< 30s).

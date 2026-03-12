@@ -5,6 +5,7 @@ class AppConstants {
 
   // Hive box names
   static const String favoritesBox = 'favorites';
+  static const String playlistsBox = 'playlists';
   static const String settingsBox = 'settings';
 
   // Settings keys

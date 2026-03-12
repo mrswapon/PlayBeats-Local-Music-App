@@ -1,16 +1,26 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:play_beats/core/constants/app_constants.dart';
 import 'package:play_beats/data/services/hive_service.dart';
 import 'package:play_beats/features/shell/screens/app_shell.dart';
 
 // ─── Onboarding-specific palette ─────────────────────────────
 class _OC {
-  static const bg1 = Color(0xFFF5F5FC);
-  static const bg2 = Color(0xFFEEEEF8);
-  static const bg3 = Color(0xFFF0F0FA);
-  static const card = Color(0xFFFFFFFF);
-  static const border = Color(0x10000000);
-  static const textBright = Color(0xFF1A1A2E);
+  // Light theme
+  static const lightBg1 = Color(0xFFF5F5FC);
+  static const lightBg2 = Color(0xFFEEEEF8);
+  static const lightBg3 = Color(0xFFF0F0FA);
+  static const lightCard = Color(0xFFFFFFFF);
+  static const lightBorder = Color(0x10000000);
+  static const lightTextBright = Color(0xFF1A1A2E);
+  
+  // Dark theme
+  static const darkBg1 = Color(0xFF1A1A2E);
+  static const darkBg2 = Color(0xFF16162A);
+  static const darkBg3 = Color(0xFF18182C);
+  static const darkCard = Color(0xFF2A2A3C);
+  static const darkBorder = Color(0x10FFFFFF);
+  static const darkTextBright = Color(0xFFE0E0E0);
 }
 
 class OnboardingScreen extends StatefulWidget {
@@ -24,10 +34,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     with TickerProviderStateMixin {
   late final AnimationController _fadeController;
   late final AnimationController _floatController;
+  late final bool _isDark;
 
   @override
   void initState() {
     super.initState();
+    _isDark = _loadSavedTheme() == ThemeMode.dark;
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -37,6 +49,16 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       vsync: this,
       duration: const Duration(seconds: 4),
     )..repeat(reverse: true);
+  }
+
+  ThemeMode _loadSavedTheme() {
+    try {
+      final idx = HiveService.settingsBox
+          .get(AppConstants.themeModeKey, defaultValue: 0);
+      return idx == 1 ? ThemeMode.dark : ThemeMode.light;
+    } catch (e) {
+      return ThemeMode.light;
+    }
   }
 
   @override
@@ -61,12 +83,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       body: Container(
         width: size.width,
         height: size.height,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [_OC.bg1, _OC.bg2, _OC.bg3, _OC.bg1],
-            stops: [0, 0.3, 0.6, 1],
+            colors: _isDark
+                ? const [_OC.darkBg1, _OC.darkBg2, _OC.darkBg3, _OC.darkBg1]
+                : const [_OC.lightBg1, _OC.lightBg2, _OC.lightBg3, _OC.lightBg1],
+            stops: const [0, 0.3, 0.6, 1],
           ),
         ),
         child: SafeArea(
@@ -114,14 +138,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                _OC.card.withValues(alpha: 0.5),
-                _OC.bg2.withValues(alpha: 0.7),
+                (_isDark ? _OC.darkCard : _OC.lightCard).withValues(alpha: 0.5),
+                (_isDark ? _OC.darkBg2 : _OC.lightBg2).withValues(alpha: 0.7),
               ],
             ),
-            border: Border.all(color: _OC.border, width: 1),
+            border: Border.all(color: _isDark ? _OC.darkBorder : _OC.lightBorder, width: 1),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
+                color: (_isDark ? Colors.black : Colors.white).withValues(alpha: 0.08),
                 blurRadius: 40,
                 offset: const Offset(0, 20),
               ),
@@ -189,7 +213,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          _OC.bg1.withValues(alpha: 0.8),
+                          (_isDark ? _OC.darkBg1 : _OC.lightBg1).withValues(alpha: 0.8),
                         ],
                       ),
                     ),
@@ -221,12 +245,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               parent: _fadeController,
               curve: const Interval(0.25, 0.65, curve: Curves.easeOut),
             )),
-            child: const Text(
+            child: Text(
               'New',
               style: TextStyle(
                 fontSize: 46,
                 fontWeight: FontWeight.w900,
-                color: _OC.textBright,
+                color: _isDark ? _OC.darkTextBright : _OC.lightTextBright,
                 letterSpacing: -0.5,
                 height: 1.1,
               ),
@@ -249,16 +273,18 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               curve: const Interval(0.35, 0.75, curve: Curves.easeOut),
             )),
             child: ShaderMask(
-              shaderCallback: (bounds) => const LinearGradient(
-                colors: [Color(0xFF2A2A3E), Color(0xFF6A6A7E)],
+              shaderCallback: (bounds) => LinearGradient(
+                colors: _isDark
+                    ? const [Color(0xFF8A8AAE), Color(0xFFAAAACE)]
+                    : const [Color(0xFF2A2A3E), Color(0xFF6A6A7E)],
               ).createShader(bounds),
-              child: const Text(
+              child: Text(
                 'Age Of',
                 style: TextStyle(
                   fontSize: 46,
                   fontWeight: FontWeight.w700,
                   fontStyle: FontStyle.italic,
-                  color: Colors.white,
+                  color: _isDark ? const Color(0xFFC0C0E0) : Colors.white,
                   height: 1.1,
                 ),
               ),
@@ -280,12 +306,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               parent: _fadeController,
               curve: const Interval(0.45, 0.85, curve: Curves.easeOut),
             )),
-            child: const Text(
+            child: Text(
               'Music',
               style: TextStyle(
                 fontSize: 46,
                 fontWeight: FontWeight.w900,
-                color: _OC.textBright,
+                color: _isDark ? _OC.darkTextBright : _OC.lightTextBright,
                 letterSpacing: -0.5,
                 height: 1.1,
               ),
@@ -316,8 +342,8 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           child: ElevatedButton(
             onPressed: _onGetStarted,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1A1A2E),
-              foregroundColor: Colors.white,
+              backgroundColor: _isDark ? const Color(0xFF2A2A4E) : const Color(0xFF1A1A2E),
+              foregroundColor: _isDark ? const Color(0xFFE0E0E0) : Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),

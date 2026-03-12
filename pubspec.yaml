@@ -21,6 +21,10 @@ dependencies:
   audio_service: ^0.18.17
   audio_session: ^0.1.25
 
+  # Video
+  video_player: ^2.9.2
+  chewie: ^1.8.5
+
   # Local Storage
   hive: ^2.2.3
   hive_flutter: ^1.1.0

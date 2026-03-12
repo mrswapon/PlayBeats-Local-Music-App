@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd /c/Users/swapo/StudioProjects/play_beats && flutter analyze lib/features/player/screens/player_screen.dart lib/features/songs/widgets/explore_album_art.dart 2>&1)",
+      "Bash(cd /c/Users/swapo/StudioProjects/play_beats && flutter analyze 2>&1)",
+      "Bash(cd /c/Users/swapo/StudioProjects/play_beats && flutter analyze lib/features/player/screens/player_screen.dart 2>&1)",
+      "Bash(cd /c/Users/swapo/StudioProjects/play_beats && flutter analyze lib/features/player/widgets/mini_player.dart 2>&1)",
+      "Bash(cd /c/Users/swapo/StudioProjects/play_beats && flutter analyze lib/features/songs/screens/songs_screen.dart 2>&1)",
+      "Bash(cd /c/Users/swapo/StudioProjects/play_beats && flutter analyze lib/features/favorites/screens/favorites_screen.dart 2>&1)",
+      "Bash(cd /c/Users/swapo/StudioProjects/play_beats && flutter analyze lib/features/browse/screens/browse_screen.dart 2>&1)",
+      "Bash(cd /c/Users/swapo/StudioProjects/play_beats && flutter analyze lib/features/shell/screens/app_shell.dart 2>&1)",
+      "Bash(cd /c/Users/swapo/StudioProjects/play_beats && flutter analyze lib/app.dart lib/features/splash/screens/splash_screen.dart 2>&1)",
+      "Bash(tail:*)"
+    ]
+  }
+}

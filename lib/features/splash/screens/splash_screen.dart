@@ -1,5 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:play_beats/core/constants/app_constants.dart';
+import 'package:play_beats/data/repositories/local_music_repository.dart';
 import 'package:play_beats/data/services/hive_service.dart';
 import 'package:play_beats/features/onboarding/screens/onboarding_screen.dart';
 import 'package:play_beats/features/shell/screens/app_shell.dart';
@@ -21,6 +23,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
+    _requestPermissions();
 
     // Disc scale + spin
     _scaleController = AnimationController(
@@ -68,6 +71,26 @@ class _SplashScreenState extends State<SplashScreen>
     });
   }
 
+  Future<void> _requestPermissions() async {
+    // Request permissions early to avoid issues with activity recreation
+    try {
+      final repository = LocalMusicRepository();
+      await repository.requestPermission();
+    } catch (e) {
+      // Ignore errors - will be requested again when needed
+    }
+  }
+
+  ThemeMode _loadSavedTheme() {
+    try {
+      final idx = HiveService.settingsBox
+          .get(AppConstants.themeModeKey, defaultValue: 0);
+      return idx == 1 ? ThemeMode.dark : ThemeMode.light;
+    } catch (e) {
+      return ThemeMode.light;
+    }
+  }
+
   void _navigate() {
     if (!mounted) return;
     final destination = HiveService.isOnboardingComplete
@@ -76,7 +99,7 @@ class _SplashScreenState extends State<SplashScreen>
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
         pageBuilder: (_, __, ___) => destination,
-        transitionDuration: const Duration(seconds: 12),
+        transitionDuration: const Duration(milliseconds: 400),
         transitionsBuilder: (_, animation, __, child) {
           return FadeTransition(opacity: animation, child: child);
         },
@@ -97,22 +120,33 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final discSize = size.width * 0.42;
+    
+    // Load saved theme mode
+    final themeMode = _loadSavedTheme();
+    final isDark = themeMode == ThemeMode.dark;
 
     return Scaffold(
       body: Container(
         width: size.width,
         height: size.height,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFF5F5FC),
-              Color(0xFFEEEEF8),
-              Color(0xFFF0F0FA),
-              Color(0xFFF5F5FC),
-            ],
-            stops: [0, 0.3, 0.6, 1],
+            colors: isDark
+                ? const [
+                    Color(0xFF1A1A2E),
+                    Color(0xFF16162A),
+                    Color(0xFF18182C),
+                    Color(0xFF1A1A2E),
+                  ]
+                : const [
+                    Color(0xFFF5F5FC),
+                    Color(0xFFEEEEF8),
+                    Color(0xFFF0F0FA),
+                    Color(0xFFF5F5FC),
+                  ],
+            stops: const [0, 0.3, 0.6, 1],
           ),
         ),
         child: FadeTransition(

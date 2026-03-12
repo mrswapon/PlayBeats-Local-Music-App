@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:play_beats/core/theme/app_theme.dart';
+import 'package:play_beats/core/theme/neumorphic.dart';
 import 'package:play_beats/data/models/song_model.dart';
+import 'package:play_beats/data/repositories/song_metadata_repository.dart';
 import 'package:play_beats/features/player/bloc/player_bloc.dart';
 import 'package:play_beats/features/player/bloc/player_event.dart';
+import 'package:play_beats/features/playlists/bloc/playlists_bloc.dart';
+import 'package:play_beats/features/playlists/bloc/playlists_event.dart';
+import 'package:play_beats/features/playlists/bloc/playlists_state.dart';
 import 'package:play_beats/features/songs/bloc/songs_bloc.dart';
 import 'package:play_beats/features/songs/bloc/songs_event.dart';
 import 'package:play_beats/features/songs/bloc/songs_state.dart';
@@ -387,18 +393,32 @@ class _SongsScreenState extends State<SongsScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          song.title,
-          style: TextStyle(
-            fontSize: isActive ? 15 : 13.5,
-            fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
-            color: isActive
-                ? _textPrimary
-                : _textPrimary.withValues(alpha: 0.9),
-            letterSpacing: 0.1,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                song.displayTitle,
+                style: TextStyle(
+                  fontSize: isActive ? 15 : 13.5,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w600,
+                  color: isActive
+                      ? _textPrimary
+                      : _textPrimary.withValues(alpha: 0.9),
+                  letterSpacing: 0.1,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (song.hasCustomTitle) ...[
+              const SizedBox(width: 4),
+              Icon(
+                Icons.edit,
+                size: 12,
+                color: _iconAlpha,
+              ),
+            ],
+          ],
         ),
         const SizedBox(height: 3),
         Text(
@@ -460,13 +480,40 @@ class _SongsScreenState extends State<SongsScreen>
       ),
     );
 
-    return GestureDetector(
-      key: itemKey,
-      onTap: () => context.read<PlayerBloc>()
-          .add(PlaySong(song: song, playlist: playlist)),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeOutCubic,
+    return Dismissible(
+      key: ValueKey('${song.id}_$index'),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(isActive ? 50 : 28),
+          color: _isDark ? const Color(0xFF3A3A5A) : const Color(0xFFE0E0F0),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.edit, color: _textPrimary, size: 20),
+            const SizedBox(width: 4),
+            Text(
+              'Rename',
+              style: TextStyle(color: _textPrimary, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      ),
+      confirmDismiss: (direction) async {
+        _showRenameDialog(context, song);
+        return false; // Don't actually dismiss
+      },
+      child: GestureDetector(
+        key: itemKey,
+        onTap: () => context.read<PlayerBloc>()
+            .add(PlaySong(song: song, playlist: playlist)),
+        onLongPress: () => _showSongOptions(context, song, playlist),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeOutCubic,
         // Active: keep margin but extend to right edge for full-width card
         // Inactive: compact diagonal offset
         margin: EdgeInsets.only(
@@ -524,6 +571,7 @@ class _SongsScreenState extends State<SongsScreen>
               playPill,
             ],
           ],
+        ),
         ),
       ),
     );
@@ -679,6 +727,421 @@ class _SongsScreenState extends State<SongsScreen>
           ],
         ),
       ),
+    );
+  }
+
+  // ── Song options sheet ───────────────────────────────────────
+  void _showSongOptions(BuildContext context, Song song, List<Song> playlist) {
+    final c = context.colors;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: c.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                decoration: BoxDecoration(
+                  color: c.textSecondary.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Rename
+              ListTile(
+                leading: Icon(Icons.edit, color: c.textPrimary),
+                title: Text(
+                  song.hasCustomTitle ? 'Edit Name' : 'Rename',
+                  style: TextStyle(color: c.textPrimary),
+                ),
+                subtitle: song.hasCustomTitle
+                    ? Text(
+                        'Custom: ${song.displayTitle}',
+                        style: TextStyle(color: c.textSecondary, fontSize: 11),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    : null,
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _showRenameDialog(context, song);
+                },
+              ),
+              // Add to playlist
+              ListTile(
+                leading: Icon(Icons.playlist_add, color: c.textPrimary),
+                title: Text('Add to Playlist',
+                    style: TextStyle(color: c.textPrimary)),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _showAddToPlaylistSheet(context, song);
+                },
+              ),
+              // Delete song
+              ListTile(
+                leading: Icon(Icons.delete_outline, color: Colors.red[400]),
+                title: Text('Delete Song',
+                    style: TextStyle(color: Colors.red[400])),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _showDeleteConfirmation(context, song);
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ── Rename dialog ────────────────────────────────────────────
+  void _showRenameDialog(BuildContext context, Song song) {
+    final c = context.colors;
+    final controller = TextEditingController(text: song.displayTitle);
+    final metadataRepo = context.read<SongMetadataRepository>();
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          backgroundColor: c.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Rename Song', style: TextStyle(color: c.textPrimary)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                style: TextStyle(color: c.textPrimary),
+                decoration: InputDecoration(
+                  hintText: 'Enter new name',
+                  hintStyle: TextStyle(color: c.textSecondary),
+                  filled: true,
+                  fillColor: c.background,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  prefixIcon: Icon(Icons.edit, color: c.iconDim),
+                ),
+                autofocus: true,
+                maxLength: 100,
+                textInputAction: TextInputAction.done,
+              ),
+              if (song.hasCustomTitle) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 14, color: c.textSecondary),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Original: ${song.title}',
+                        style: TextStyle(
+                          color: c.textSecondary,
+                          fontSize: 11,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            if (song.hasCustomTitle)
+              TextButton(
+                onPressed: () async {
+                  await metadataRepo.clearCustomTitle(song.id);
+                  if (context.mounted) {
+                    Navigator.pop(dialogCtx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Restored original name'),
+                        backgroundColor: c.textSecondary,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+                child: Text('Reset', style: TextStyle(color: c.textSecondary)),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text('Cancel', style: TextStyle(color: c.textSecondary)),
+            ),
+            TextButton(
+              onPressed: () async {
+                final newName = controller.text.trim();
+                if (newName.isNotEmpty && newName != song.title) {
+                  await metadataRepo.setCustomTitle(song.id, newName);
+                  if (context.mounted) {
+                    Navigator.pop(dialogCtx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Renamed to "$newName"'),
+                        backgroundColor: c.accent,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                } else if (newName.isEmpty) {
+                  await metadataRepo.clearCustomTitle(song.id);
+                  if (context.mounted) {
+                    Navigator.pop(dialogCtx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Restored original name'),
+                        backgroundColor: c.textSecondary,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                } else {
+                  Navigator.pop(dialogCtx);
+                }
+              },
+              child: Text('Save', style: TextStyle(color: c.accent)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ── Add to playlist sheet ────────────────────────────────────
+  void _showAddToPlaylistSheet(BuildContext context, Song song) {
+    final c = context.colors;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: c.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                decoration: BoxDecoration(
+                  color: c.textSecondary.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+                child: Row(
+                  children: [
+                    Text('Select Playlist',
+                        style: TextStyle(
+                            color: c.textPrimary,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.pop(sheetCtx);
+                        _showCreatePlaylistDialog(context, song);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: c.accent.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.add, color: c.accent, size: 16),
+                            const SizedBox(width: 4),
+                            Text('New',
+                                style: TextStyle(
+                                    color: c.accent,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              BlocBuilder<PlaylistsBloc, PlaylistsState>(
+                builder: (context, state) {
+                  if (state is PlaylistsLoaded) {
+                    if (state.playlists.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          'No playlists yet.\nCreate one to add songs.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: c.textSecondary),
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: state.playlists.length,
+                      itemBuilder: (context, index) {
+                        final playlist = state.playlists[index];
+                        final isSongInPlaylist =
+                            playlist.songIds.contains(song.id);
+                        return ListTile(
+                          leading: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: Neu.circular(
+                              color: c.surface,
+                              bgColor: c.background,
+                              shadowDark: c.shadowDark,
+                              shadowLight: c.shadowLight,
+                            ),
+                            child: Icon(Icons.queue_music,
+                                color: c.textSecondary, size: 18),
+                          ),
+                          title: Text(
+                            playlist.name,
+                            style: TextStyle(color: c.textPrimary),
+                          ),
+                          subtitle: Text(
+                            '${playlist.songIds.length} songs',
+                            style: TextStyle(color: c.textSecondary),
+                          ),
+                          trailing: isSongInPlaylist
+                              ? Icon(Icons.check, color: c.accent)
+                              : null,
+                          onTap: () {
+                            if (!isSongInPlaylist) {
+                              context.read<PlaylistsBloc>().add(
+                                    AddSongToPlaylist(
+                                      playlistId: playlist.id,
+                                      songId: song.id,
+                                    ),
+                                  );
+                            }
+                            Navigator.pop(sheetCtx);
+                          },
+                        );
+                      },
+                    );
+                  }
+                  return const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ── Create playlist dialog ───────────────────────────────────
+  void _showCreatePlaylistDialog(BuildContext context, Song song) {
+    final c = context.colors;
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          backgroundColor: c.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('New Playlist', style: TextStyle(color: c.textPrimary)),
+          content: TextField(
+            controller: controller,
+            style: TextStyle(color: c.textPrimary),
+            decoration: InputDecoration(
+              hintText: 'Playlist name',
+              hintStyle: TextStyle(color: c.textSecondary),
+              filled: true,
+              fillColor: c.background,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text('Cancel', style: TextStyle(color: c.textSecondary)),
+            ),
+            TextButton(
+              onPressed: () {
+                if (controller.text.trim().isNotEmpty) {
+                  context
+                      .read<PlaylistsBloc>()
+                      .add(CreatePlaylist(controller.text.trim()));
+                  Navigator.pop(dialogCtx);
+                  Future.delayed(const Duration(milliseconds: 200), () {
+                    if (context.mounted) {
+                      _showAddToPlaylistSheet(context, song);
+                    }
+                  });
+                }
+              },
+              child: Text('Create', style: TextStyle(color: c.accent)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ── Delete confirmation ──────────────────────────────────────
+  void _showDeleteConfirmation(BuildContext context, Song song) {
+    final c = context.colors;
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          backgroundColor: c.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          icon: Icon(Icons.warning_amber_rounded,
+              color: Colors.red[400], size: 48),
+          title: Text('Delete Song?', style: TextStyle(color: c.textPrimary)),
+          content: Text(
+            'This will remove "${song.title}" from your device storage. This action cannot be undone.',
+            style: TextStyle(color: c.textSecondary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text('Cancel', style: TextStyle(color: c.textSecondary)),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(dialogCtx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('File deletion requires additional setup'),
+                    backgroundColor: c.textSecondary,
+                  ),
+                );
+              },
+              child: Text('Delete', style: TextStyle(color: Colors.red[400])),
+            ),
+          ],
+        );
+      },
     );
   }
 }

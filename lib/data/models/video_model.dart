@@ -2,7 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:hive/hive.dart';
 import 'package:on_audio_query/on_audio_query.dart' as oaq;
 
-class Song extends Equatable {
+class Video extends Equatable {
   final String id;
   final String title;
   final String artist;
@@ -10,9 +10,9 @@ class Song extends Equatable {
   final int duration; // milliseconds
   final String album;
   final int albumId;
-  final String? customTitle; // User-customized title
+  final String? thumbnailPath;
 
-  const Song({
+  const Video({
     required this.id,
     required this.title,
     required this.artist,
@@ -20,17 +20,11 @@ class Song extends Equatable {
     this.duration = 0,
     this.album = '',
     this.albumId = 0,
-    this.customTitle,
+    this.thumbnailPath,
   });
 
-  /// Get the display title (custom title if set, otherwise original title)
-  String get displayTitle => customTitle?.isNotEmpty == true ? customTitle! : title;
-
-  /// Check if the song has a custom title
-  bool get hasCustomTitle => customTitle?.isNotEmpty == true;
-
-  factory Song.fromDeviceSong(oaq.SongModel deviceSong) {
-    return Song(
+  factory Video.fromDeviceVideo(oaq.SongModel deviceSong) {
+    return Video(
       id: deviceSong.id.toString(),
       title: deviceSong.title,
       artist: (deviceSong.artist == null || deviceSong.artist == '<unknown>')
@@ -42,10 +36,11 @@ class Song extends Equatable {
           ? 'Unknown Album'
           : deviceSong.album!,
       albumId: deviceSong.albumId ?? 0,
+      thumbnailPath: deviceSong.data,
     );
   }
 
-  /// Numeric ID for artwork queries with on_audio_query
+  /// Numeric ID for artwork queries
   int get numericId => int.tryParse(id) ?? 0;
 
   /// Formatted duration string (mm:ss)
@@ -65,12 +60,12 @@ class Song extends Equatable {
       'duration': duration,
       'album': album,
       'albumId': albumId,
-      'customTitle': customTitle,
+      'thumbnailPath': thumbnailPath,
     };
   }
 
-  factory Song.fromJson(Map<String, dynamic> json) {
-    return Song(
+  factory Video.fromJson(Map<String, dynamic> json) {
+    return Video(
       id: json['id'] as String,
       title: json['title'] as String,
       artist: json['artist'] as String,
@@ -78,11 +73,11 @@ class Song extends Equatable {
       duration: json['duration'] as int? ?? 0,
       album: json['album'] as String? ?? '',
       albumId: json['albumId'] as int? ?? 0,
-      customTitle: json['customTitle'] as String?,
+      thumbnailPath: json['thumbnailPath'] as String?,
     );
   }
 
-  Song copyWith({
+  Video copyWith({
     String? id,
     String? title,
     String? artist,
@@ -90,9 +85,9 @@ class Song extends Equatable {
     int? duration,
     String? album,
     int? albumId,
-    String? customTitle,
+    String? thumbnailPath,
   }) {
-    return Song(
+    return Video(
       id: id ?? this.id,
       title: title ?? this.title,
       artist: artist ?? this.artist,
@@ -100,27 +95,27 @@ class Song extends Equatable {
       duration: duration ?? this.duration,
       album: album ?? this.album,
       albumId: albumId ?? this.albumId,
-      customTitle: customTitle ?? this.customTitle,
+      thumbnailPath: thumbnailPath ?? this.thumbnailPath,
     );
   }
 
   @override
   List<Object?> get props =>
-      [id, title, artist, filePath, duration, album, albumId, customTitle];
+      [id, title, artist, filePath, duration, album, albumId, thumbnailPath];
 }
 
-class SongAdapter extends TypeAdapter<Song> {
+class VideoAdapter extends TypeAdapter<Video> {
   @override
-  final int typeId = 0;
+  final int typeId = 2;
 
   @override
-  Song read(BinaryReader reader) {
+  Video read(BinaryReader reader) {
     final map = reader.readMap().cast<String, dynamic>();
-    return Song.fromJson(map);
+    return Video.fromJson(map);
   }
 
   @override
-  void write(BinaryWriter writer, Song obj) {
+  void write(BinaryWriter writer, Video obj) {
     writer.writeMap(obj.toJson());
   }
 }

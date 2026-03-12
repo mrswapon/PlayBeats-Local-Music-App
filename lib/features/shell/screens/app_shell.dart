@@ -4,7 +4,9 @@ import 'package:play_beats/core/theme/app_theme.dart';
 import 'package:play_beats/features/browse/screens/browse_screen.dart';
 import 'package:play_beats/features/favorites/screens/favorites_screen.dart';
 import 'package:play_beats/features/player/widgets/mini_player.dart';
+import 'package:play_beats/features/playlists/screens/playlists_screen.dart';
 import 'package:play_beats/features/songs/screens/songs_screen.dart';
+import 'package:play_beats/features/videos/screens/videos_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
@@ -19,8 +21,10 @@ class _AppShellState extends State<AppShell> {
   final _browseKey = GlobalKey<BrowseScreenState>();
 
   late final List<Widget> _screens = [
+    const VideosScreen(),
     const SongsScreen(),
     BrowseScreen(key: _browseKey),
+    const PlaylistsScreen(),
     const FavoritesScreen(),
   ];
 
@@ -72,14 +76,14 @@ class _BottomNavBar extends StatefulWidget {
 
 class _BottomNavBarState extends State<_BottomNavBar>
     with TickerProviderStateMixin {
-  static const _labels = ['Songs', 'Browse', 'Saved'];
+  static const _labels = ['Videos','Songs', 'Browse', 'Playlists', 'Saved'];
   late final List<AnimationController> _tabControllers;
 
   @override
   void initState() {
     super.initState();
     _tabControllers = List.generate(
-      3,
+      5,
       (i) => AnimationController(
         vsync: this,
         duration: const Duration(milliseconds: 380),
@@ -92,7 +96,7 @@ class _BottomNavBarState extends State<_BottomNavBar>
   void didUpdateWidget(covariant _BottomNavBar old) {
     super.didUpdateWidget(old);
     if (old.selected != widget.selected) {
-      for (int i = 0; i < 3; i++) {
+      for (int i = 0; i < 5; i++) {
         if (i == widget.selected) {
           _tabControllers[i].forward();
         } else {
@@ -142,8 +146,8 @@ class _BottomNavBarState extends State<_BottomNavBar>
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
           child: Container(
-            height: 78,
-            padding: const EdgeInsets.symmetric(vertical: 6),
+            height: 74,
+            padding: const EdgeInsets.symmetric(vertical: 4),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
@@ -160,7 +164,7 @@ class _BottomNavBarState extends State<_BottomNavBar>
               ),
             ),
             child: Row(
-              children: List.generate(3, (i) {
+              children: List.generate(5, (i) {
                 return Expanded(child: _buildNavItem(i, c));
               }),
             ),
@@ -186,7 +190,7 @@ class _BottomNavBarState extends State<_BottomNavBar>
           final t = anim.value;
 
           return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 24),
+            margin: const EdgeInsets.symmetric(horizontal: 10),
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
@@ -234,14 +238,14 @@ class _BottomNavBarState extends State<_BottomNavBar>
                     child: Opacity(
                       opacity: t,
                       child: Padding(
-                        padding: const EdgeInsets.only(top: 2),
+                        padding: const EdgeInsets.only(top: 0),
                         child: Text(
                           _labels[index],
                           style: TextStyle(
                             color: c.accent,
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.3,
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.1,
                           ),
                         ),
                       ),
@@ -263,7 +267,7 @@ class _BottomNavBarState extends State<_BottomNavBar>
           width: 22,
           height: 22,
           child: CustomPaint(
-            painter: _VinylNavPainter(
+            painter: _VideoNavPainter(
               active: active,
               activeColor: c.accent,
               inactiveColor: c.iconDim,
@@ -275,7 +279,7 @@ class _BottomNavBarState extends State<_BottomNavBar>
           width: 22,
           height: 22,
           child: CustomPaint(
-            painter: _PlanetPainter(
+            painter: _VinylNavPainter(
               active: active,
               activeColor: c.accent,
               inactiveColor: c.iconDim,
@@ -283,6 +287,30 @@ class _BottomNavBarState extends State<_BottomNavBar>
           ),
         );
       case 2:
+        return SizedBox(
+          width: 22,
+          height: 22,
+          child: CustomPaint(
+            painter: _PlanetPainter(
+              active: active,
+              activeColor: c.accent,
+              inactiveColor: c.iconDim,
+            ),
+          ),
+        );
+      case 3:
+        return SizedBox(
+          width: 22,
+          height: 22,
+          child: CustomPaint(
+            painter: _PlaylistNavPainter(
+              active: active,
+              activeColor: c.accent,
+              inactiveColor: c.iconDim,
+            ),
+          ),
+        );
+      case 4:
         return SizedBox(
           width: 22,
           height: 22,
@@ -466,4 +494,117 @@ class _HeartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _HeartPainter old) => old.active != active;
+}
+
+// ─── Playlist Icon (Playlists) ──────────────────────────────────
+class _PlaylistNavPainter extends CustomPainter {
+  final bool active;
+  final Color activeColor;
+  final Color inactiveColor;
+  _PlaylistNavPainter(
+      {required this.active,
+      required this.activeColor,
+      required this.inactiveColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final color = active ? activeColor : inactiveColor;
+    final w = size.width;
+    final h = size.height;
+
+    // Background fill when active
+    if (active) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(w * 0.1, h * 0.15, w * 0.8, h * 0.7),
+          const Radius.circular(4),
+        ),
+        Paint()..color = color.withValues(alpha: 0.15),
+      );
+    }
+
+    // List lines
+    for (var i = 0; i < 3; i++) {
+      final y = h * 0.3 + i * h * 0.18;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(w * 0.2, y, w * 0.65, h * 0.12),
+          const Radius.circular(2),
+        ),
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.fill,
+      );
+    }
+
+    // Play triangle on left
+    final playPath = Path()
+      ..moveTo(w * 0.18, h * 0.35)
+      ..lineTo(w * 0.18, h * 0.65)
+      ..lineTo(w * 0.38, h * 0.5)
+      ..close();
+    canvas.drawPath(
+      playPath,
+      Paint()
+        ..color = color
+        ..style = active ? PaintingStyle.fill : PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _PlaylistNavPainter old) => old.active != active;
+}
+
+// ─── Video Icon (Videos) ────────────────────────────────────────
+class _VideoNavPainter extends CustomPainter {
+  final bool active;
+  final Color activeColor;
+  final Color inactiveColor;
+  _VideoNavPainter(
+      {required this.active,
+      required this.activeColor,
+      required this.inactiveColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final color = active ? activeColor : inactiveColor;
+    final w = size.width;
+    final h = size.height;
+
+    // Rectangle frame
+    final frameRect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(w * 0.05, h * 0.2, w * 0.9, h * 0.6),
+      const Radius.circular(4),
+    );
+
+    if (active) {
+      canvas.drawRRect(
+        frameRect,
+        Paint()..color = color.withValues(alpha: 0.15),
+      );
+    }
+
+    canvas.drawRRect(
+      frameRect,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.8,
+    );
+
+    // Play triangle in center
+    final playPath = Path()
+      ..moveTo(w * 0.42, h * 0.35)
+      ..lineTo(w * 0.42, h * 0.65)
+      ..lineTo(w * 0.68, h * 0.5)
+      ..close();
+    canvas.drawPath(
+      playPath,
+      Paint()..color = color,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _VideoNavPainter old) => old.active != active;
 }
