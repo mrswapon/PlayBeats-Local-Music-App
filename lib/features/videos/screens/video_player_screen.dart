@@ -1,5 +1,6 @@
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:play_beats/core/theme/app_theme.dart';
 import 'package:play_beats/data/models/video_model.dart';
 import 'package:play_beats/data/services/video_player_service.dart';
@@ -21,7 +22,30 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    _setLandscapeOrientation();
     _initializePlayer();
+  }
+
+  Future<void> _setLandscapeOrientation() async {
+    // Set landscape orientation
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    // Hide system UI for immersive experience
+    await SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.immersiveSticky,
+    );
+  }
+
+  Future<void> _resetOrientation() async {
+    // Reset to portrait when leaving
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
+    await SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.edgeToEdge,
+    );
   }
 
   Future<void> _initializePlayer() async {
@@ -50,6 +74,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void dispose() {
     _isDisposed = true;
+    _resetOrientation();
     if (_videoPlayerService != null) {
       try {
         _videoPlayerService!.dispose();
@@ -115,7 +140,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   child: Row(
                     children: [
                       GestureDetector(
-                        onTap: () => Navigator.pop(context),
+                        onTap: () {
+                          _resetOrientation();
+                          Navigator.pop(context);
+                        },
                         child: Container(
                           width: 40,
                           height: 40,

@@ -1,44 +1,50 @@
 import 'dart:io';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
-
-class VideoFile {
-  final String id;
-  final String title;
-  final String artist;
-  final String filePath;
-  final int duration;
-  final String album;
-  final int albumId;
-
-  VideoFile({
-    required this.id,
-    required this.title,
-    required this.artist,
-    required this.filePath,
-    this.duration = 0,
-    this.album = '',
-    this.albumId = 0,
-  });
-}
+import 'package:play_beats/data/models/video_model.dart';
+import 'package:video_player/video_player.dart';
+import 'package:video_thumbnail/video_thumbnail.dart';
 
 class VideoService {
   /// Request storage permission for accessing video files.
   Future<bool> requestPermission() async {
     try {
       if (Platform.isAndroid) {
-        // Check storage permission for Android 12 and below
-        var status = await Permission.storage.status;
-        if (status.isGranted) return true;
+        final androidInfo = await DeviceInfoPlugin().androidInfo;
+        final sdkInt = androidInfo.version.sdkInt;
         
-        status = await Permission.storage.request();
-        if (status.isGranted) return true;
+        // For Android 11+ (API 30+), request MANAGE_EXTERNAL_STORAGE
+        if (sdkInt >= 30) {
+          var status = await Permission.manageExternalStorage.status;
+          if (status.isGranted) return true;
+          
+          // Request the permission
+          status = await Permission.manageExternalStorage.request();
+          if (status.isGranted) return true;
+          
+          // If denied, try videos permission as fallback
+          status = await Permission.videos.status;
+          if (status.isGranted) return true;
+          
+          status = await Permission.videos.request();
+          return status.isGranted;
+        }
         
-        // For Android 13+, also try media permission
-        status = await Permission.videos.status;
-        if (status.isGranted) return true;
+        // For Android 12 and below, use storage permission
+        var storageStatus = await Permission.storage.status;
+        if (storageStatus.isGranted) return true;
         
-        status = await Permission.videos.request();
-        return status.isGranted;
+        storageStatus = await Permission.storage.request();
+        if (storageStatus.isGranted) return true;
+        
+        // Also try videos permission
+        var videoStatus = await Permission.videos.status;
+        if (videoStatus.isGranted) return true;
+        
+        videoStatus = await Permission.videos.request();
+        return videoStatus.isGranted;
       }
       return true;
     } catch (e) {
@@ -46,11 +52,11 @@ class VideoService {
     }
   }
 
-  /// Get all video files from external storage.
-  Future<List<VideoFile>> getAllVideos() async {
+  /// Get all video files from external storage with thumbnails and duration.
+  Future<List<Video>> getAllVideos() async {
     try {
       final videoExtensions = ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm'];
-      final videos = <VideoFile>[];
+      final videos = <Video>[];
       
       // Primary external storage directory
       final externalStorage = Directory('/storage/emulated/0');
@@ -87,18 +93,24 @@ class VideoService {
                     final stat = await entity.stat();
                     // Only include files larger than 1MB (filter out thumbnails)
                     if (stat.size > 1000000) {
-                      videos.add(VideoFile(
+                      // Extract duration and thumbnail
+                      final duration = await _getVideoDuration(entity.path);
+                      final thumbnailPath = await _generateThumbnail(entity.path);
+                      
+                      videos.add(Video(
                         id: entity.path.hashCode.toString(),
                         title: entity.path.split('/').last.replaceAll('_', ' ').replaceAll('.$ext', ''),
                         artist: 'Unknown',
                         filePath: entity.path,
-                        duration: 0,
+                        duration: duration,
                         album: dirName,
                         albumId: dirName.hashCode,
+                        thumbnailPath: thumbnailPath,
                       ));
                     }
                   } catch (e) {
-                    // Skip files we can't access
+                    // Skip files we can't process
+                    debugPrint('Error processing video ${entity.path}: $e');
                   }
                 }
               }
@@ -106,6 +118,7 @@ class VideoService {
           }
         } catch (e) {
           // Skip directories we can't access
+          debugPrint('Error accessing directory $dirName: $e');
         }
       }
 
@@ -113,7 +126,39 @@ class VideoService {
       videos.sort((a, b) => a.title.compareTo(b.title));
       return videos;
     } catch (e) {
+      debugPrint('Error getting videos: $e');
       return [];
+    }
+  }
+
+  /// Extract video duration using video_player
+  Future<int> _getVideoDuration(String filePath) async {
+    try {
+      final controller = VideoPlayerController.file(File(filePath));
+      await controller.initialize();
+      final duration = controller.value.duration.inMilliseconds;
+      await controller.dispose();
+      return duration;
+    } catch (e) {
+      debugPrint('Error getting duration for $filePath: $e');
+      return 0;
+    }
+  }
+
+  /// Generate thumbnail for video
+  Future<String?> _generateThumbnail(String filePath) async {
+    try {
+      final thumbnailPath = await VideoThumbnail.thumbnailFile(
+        video: filePath,
+        thumbnailPath: (await getTemporaryDirectory()).path,
+        imageFormat: ImageFormat.JPEG,
+        maxWidth: 200,
+        quality: 75,
+      );
+      return thumbnailPath;
+    } catch (e) {
+      debugPrint('Error generating thumbnail for $filePath: $e');
+      return null;
     }
   }
 }

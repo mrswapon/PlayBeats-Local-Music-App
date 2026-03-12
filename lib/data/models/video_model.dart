@@ -1,6 +1,5 @@
 import 'package:equatable/equatable.dart';
 import 'package:hive/hive.dart';
-import 'package:on_audio_query/on_audio_query.dart' as oaq;
 
 class Video extends Equatable {
   final String id;
@@ -11,6 +10,7 @@ class Video extends Equatable {
   final String album;
   final int albumId;
   final String? thumbnailPath;
+  final String? customTitle;
 
   const Video({
     required this.id,
@@ -21,24 +21,14 @@ class Video extends Equatable {
     this.album = '',
     this.albumId = 0,
     this.thumbnailPath,
+    this.customTitle,
   });
 
-  factory Video.fromDeviceVideo(oaq.SongModel deviceSong) {
-    return Video(
-      id: deviceSong.id.toString(),
-      title: deviceSong.title,
-      artist: (deviceSong.artist == null || deviceSong.artist == '<unknown>')
-          ? 'Unknown Artist'
-          : deviceSong.artist!,
-      filePath: deviceSong.data,
-      duration: deviceSong.duration ?? 0,
-      album: (deviceSong.album == null || deviceSong.album == '<unknown>')
-          ? 'Unknown Album'
-          : deviceSong.album!,
-      albumId: deviceSong.albumId ?? 0,
-      thumbnailPath: deviceSong.data,
-    );
-  }
+  /// Get the display title (custom title if set, otherwise original title)
+  String get displayTitle => customTitle?.isNotEmpty == true ? customTitle! : title;
+
+  /// Check if the video has a custom title
+  bool get hasCustomTitle => customTitle?.isNotEmpty == true;
 
   /// Numeric ID for artwork queries
   int get numericId => int.tryParse(id) ?? 0;
@@ -61,6 +51,7 @@ class Video extends Equatable {
       'album': album,
       'albumId': albumId,
       'thumbnailPath': thumbnailPath,
+      'customTitle': customTitle,
     };
   }
 
@@ -74,6 +65,7 @@ class Video extends Equatable {
       album: json['album'] as String? ?? '',
       albumId: json['albumId'] as int? ?? 0,
       thumbnailPath: json['thumbnailPath'] as String?,
+      customTitle: json['customTitle'] as String?,
     );
   }
 
@@ -86,6 +78,7 @@ class Video extends Equatable {
     String? album,
     int? albumId,
     String? thumbnailPath,
+    String? customTitle,
   }) {
     return Video(
       id: id ?? this.id,
@@ -96,12 +89,13 @@ class Video extends Equatable {
       album: album ?? this.album,
       albumId: albumId ?? this.albumId,
       thumbnailPath: thumbnailPath ?? this.thumbnailPath,
+      customTitle: customTitle ?? this.customTitle,
     );
   }
 
   @override
   List<Object?> get props =>
-      [id, title, artist, filePath, duration, album, albumId, thumbnailPath];
+      [id, title, artist, filePath, duration, album, albumId, thumbnailPath, customTitle];
 }
 
 class VideoAdapter extends TypeAdapter<Video> {

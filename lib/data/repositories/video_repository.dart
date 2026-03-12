@@ -1,3 +1,4 @@
+import 'package:play_beats/data/models/video_model.dart';
 import 'package:play_beats/data/services/video_service.dart';
 
 class VideoRepository {
@@ -5,5 +6,5 @@ class VideoRepository {
 
   Future<bool> requestPermission() => _service.requestPermission();
 
-  Future<List<VideoFile>> getAllVideos() => _service.getAllVideos();
+  Future<List<Video>> getAllVideos() => _service.getAllVideos();
 }
