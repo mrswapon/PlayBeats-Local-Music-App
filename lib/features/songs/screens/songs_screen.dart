@@ -482,28 +482,55 @@ class _SongsScreenState extends State<SongsScreen>
 
     return Dismissible(
       key: ValueKey('${song.id}_$index'),
-      direction: DismissDirection.endToStart,
+      direction: DismissDirection.horizontal,
       background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 20),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(isActive ? 50 : 28),
-          color: _isDark ? const Color(0xFF3A3A5A) : const Color(0xFFE0E0F0),
+          color: Colors.green[700],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.edit, color: _textPrimary, size: 20),
+            Icon(Icons.edit, color: Colors.white, size: 20),
             const SizedBox(width: 4),
             Text(
               'Rename',
-              style: TextStyle(color: _textPrimary, fontWeight: FontWeight.w600),
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
             ),
+            const SizedBox(width: 8),
+          ],
+        ),
+      ),
+      secondaryBackground: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(isActive ? 50 : 28),
+          color: Colors.red[700],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(width: 8),
+            Text(
+              'Delete',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.delete, color: Colors.white, size: 20),
           ],
         ),
       ),
       confirmDismiss: (direction) async {
-        _showRenameDialog(context, song);
+        if (direction == DismissDirection.startToEnd) {
+          // Swipe right - Rename
+          _showRenameDialog(context, song);
+        } else {
+          // Swipe left - Delete
+          _showDeleteConfirmation(context, song);
+        }
         return false; // Don't actually dismiss
       },
       child: GestureDetector(

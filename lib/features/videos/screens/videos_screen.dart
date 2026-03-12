@@ -280,21 +280,21 @@ class _VideosScreenState extends State<VideosScreen>
     final c = context.colors;
     return Dismissible(
       key: ValueKey(video.id),
-      direction: DismissDirection.endToStart,
+      direction: DismissDirection.horizontal,
       background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 20),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(18),
-          color: Colors.red[700],
+          color: Colors.green[700],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.delete, color: Colors.white, size: 20),
+            Icon(Icons.edit, color: Colors.white, size: 20),
             const SizedBox(width: 4),
             Text(
-              'Delete',
+              'Rename',
               style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
             ),
             const SizedBox(width: 8),
@@ -302,7 +302,13 @@ class _VideosScreenState extends State<VideosScreen>
         ),
       ),
       confirmDismiss: (direction) async {
-        _showDeleteConfirmation(context, video);
+        if (direction == DismissDirection.startToEnd) {
+          // Swipe right - Rename
+          _showRenameDialog(context, video);
+        } else {
+          // Swipe left - Delete
+          _showDeleteConfirmation(context, video);
+        }
         return false; // Don't actually dismiss
       },
       child: GestureDetector(
