@@ -24,6 +24,11 @@ class VideosScreen extends StatefulWidget {
 class _VideosScreenState extends State<VideosScreen>
     with TickerProviderStateMixin {
   late final AnimationController _entryController;
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  bool _showSearch = false;
+  List<Video> _allVideos = [];
+  List<Video> _filteredVideos = [];
 
   @override
   void initState() {
@@ -38,7 +43,30 @@ class _VideosScreenState extends State<VideosScreen>
   @override
   void dispose() {
     _entryController.dispose();
+    _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _toggleSearch() {
+    setState(() {
+      _showSearch = !_showSearch;
+      if (!_showSearch) {
+        _searchController.clear();
+        _filteredVideos = _allVideos;
+      }
+    });
+  }
+
+  void _filterVideos(String query) {
+    final lowercaseQuery = query.toLowerCase();
+    setState(() {
+      _filteredVideos = _allVideos.where((video) {
+        return video.displayTitle.toLowerCase().contains(lowercaseQuery) ||
+            video.artist.toLowerCase().contains(lowercaseQuery) ||
+            video.album.toLowerCase().contains(lowercaseQuery);
+      }).toList();
+    });
   }
 
   @override
@@ -63,21 +91,26 @@ class _VideosScreenState extends State<VideosScreen>
               padding: const EdgeInsets.fromLTRB(28, 16, 28, 8),
               child: Row(
                 children: [
-                  Text(
-                    'Videos',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      color: c.textPrimary,
-                      letterSpacing: -0.5,
+                  if (!_showSearch) ...[
+                    Expanded(
+                      child: Text(
+                        'Videos',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          color: c.textPrimary,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
                     ),
-                  ),
-                  const Spacer(),
-                  // Refresh button
+                  ] else ...[
+                    Expanded(
+                      child: _buildSearchBar(c),
+                    ),
+                  ],
+                  // Search/Close button
                   GestureDetector(
-                    onTap: () {
-                      context.read<VideosBloc>().add(RefreshVideos());
-                    },
+                    onTap: _toggleSearch,
                     child: Container(
                       width: 38,
                       height: 38,
@@ -92,8 +125,11 @@ class _VideosScreenState extends State<VideosScreen>
                               : Colors.black.withValues(alpha: 0.06),
                         ),
                       ),
-                      child: Icon(Icons.refresh_rounded,
-                          color: c.iconDim, size: 18),
+                      child: Icon(
+                        _showSearch ? Icons.close_rounded : Icons.search_rounded,
+                        color: c.iconDim,
+                        size: 18,
+                      ),
                     ),
                   ),
                 ],
@@ -106,6 +142,8 @@ class _VideosScreenState extends State<VideosScreen>
               child: BlocConsumer<VideosBloc, VideosState>(
                 listener: (context, state) {
                   if (state is VideosLoaded) {
+                    _allVideos = state.videos;
+                    _filteredVideos = _allVideos;
                     _entryController.reset();
                     _entryController.forward();
                   }
@@ -124,10 +162,14 @@ class _VideosScreenState extends State<VideosScreen>
                   }
 
                   if (state is VideosLoaded) {
-                    if (state.videos.isEmpty) {
-                      return _buildEmptyState();
+                    if (_filteredVideos.isEmpty) {
+                      return _buildEmptyState(
+                        _searchController.text.isNotEmpty
+                            ? 'No videos found for "${_searchController.text}"'
+                            : 'No videos found',
+                      );
                     }
-                    return _buildVideoList(state.videos);
+                    return _buildVideoList(_filteredVideos);
                   }
 
                   return const SizedBox.shrink();
@@ -175,6 +217,50 @@ class _VideosScreenState extends State<VideosScreen>
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildSearchBar(AppColors c) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: c.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: _searchController,
+        focusNode: _searchFocusNode,
+        style: TextStyle(color: c.textPrimary, fontSize: 14),
+        decoration: InputDecoration(
+          hintText: 'Search videos...',
+          hintStyle: TextStyle(color: c.textSecondary, fontSize: 14),
+          prefixIcon: Icon(Icons.search, color: c.iconDim, size: 20),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  icon: Icon(Icons.clear, color: c.iconDim, size: 18),
+                  onPressed: () {
+                    _searchController.clear();
+                    _filterVideos('');
+                  },
+                )
+              : null,
+          filled: true,
+          fillColor: c.surface,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+        onChanged: _filterVideos,
+        textInputAction: TextInputAction.search,
       ),
     );
   }
@@ -430,7 +516,7 @@ class _VideosScreenState extends State<VideosScreen>
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState([String? message]) {
     final c = context.colors;
     return Center(
       child: Column(
@@ -450,7 +536,7 @@ class _VideosScreenState extends State<VideosScreen>
           ),
           const SizedBox(height: 20),
           Text(
-            'No videos found',
+            message ?? 'No videos found',
             style: TextStyle(
               color: c.textPrimary,
               fontSize: 18,
@@ -459,7 +545,9 @@ class _VideosScreenState extends State<VideosScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'Add video files to your device\nto see them here',
+            message != null
+                ? 'Try a different search term'
+                : 'Add video files to your device\nto see them here',
             textAlign: TextAlign.center,
             style: TextStyle(color: c.textSecondary, fontSize: 14),
           ),
