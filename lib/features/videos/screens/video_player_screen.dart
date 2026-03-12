@@ -14,26 +14,29 @@ class VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
-  late VideoPlayerService _videoPlayerService;
+  VideoPlayerService? _videoPlayerService;
   bool _isInitialized = false;
+  bool _isDisposed = false;
 
   @override
   void initState() {
     super.initState();
-    _videoPlayerService = VideoPlayerService();
     _initializePlayer();
   }
 
   Future<void> _initializePlayer() async {
+    if (_isDisposed) return;
+    
     try {
-      await _videoPlayerService.initialize(widget.video.filePath);
-      if (mounted) {
+      _videoPlayerService = VideoPlayerService();
+      await _videoPlayerService!.initialize(widget.video.filePath);
+      if (mounted && !_isDisposed) {
         setState(() {
           _isInitialized = true;
         });
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted && !_isDisposed) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error loading video: $e'),
@@ -46,7 +49,15 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
 
   @override
   void dispose() {
-    _videoPlayerService.dispose();
+    _isDisposed = true;
+    if (_videoPlayerService != null) {
+      try {
+        _videoPlayerService!.dispose();
+      } catch (e) {
+        // Ignore disposal errors
+      }
+      _videoPlayerService = null;
+    }
     super.dispose();
   }
 
@@ -59,10 +70,10 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
         children: [
           // Video player
           Center(
-            child: _isInitialized &&
-                    _videoPlayerService.chewieController != null
+            child: _isInitialized && !_isDisposed &&
+                    _videoPlayerService?.chewieController != null
                 ? Chewie(
-                    controller: _videoPlayerService.chewieController!,
+                    controller: _videoPlayerService!.chewieController!,
                   )
                 : Column(
                     mainAxisAlignment: MainAxisAlignment.center,

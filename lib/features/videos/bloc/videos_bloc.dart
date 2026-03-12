@@ -25,9 +25,17 @@ class VideosBloc extends Bloc<VideosEvent, VideosState> {
     }
 
     try {
-      final deviceVideos = await repository.getAllVideos();
-      final videos =
-          deviceVideos.map((v) => Video.fromDeviceVideo(v)).toList();
+      final videoFiles = await repository.getAllVideos();
+      // Convert VideoFile to Video model
+      final videos = videoFiles.map((vf) => Video(
+        id: vf.id,
+        title: vf.title,
+        artist: vf.artist,
+        filePath: vf.filePath,
+        duration: vf.duration,
+        album: vf.album,
+        albumId: vf.albumId,
+      )).toList();
       emit(VideosLoaded(videos));
     } catch (e) {
       emit(VideosError(e.toString()));
@@ -39,9 +47,16 @@ class VideosBloc extends Bloc<VideosEvent, VideosState> {
     Emitter<VideosState> emit,
   ) async {
     try {
-      final deviceVideos = await repository.getAllVideos();
-      final videos =
-          deviceVideos.map((v) => Video.fromDeviceVideo(v)).toList();
+      final videoFiles = await repository.getAllVideos();
+      final videos = videoFiles.map((vf) => Video(
+        id: vf.id,
+        title: vf.title,
+        artist: vf.artist,
+        filePath: vf.filePath,
+        duration: vf.duration,
+        album: vf.album,
+        albumId: vf.albumId,
+      )).toList();
       emit(VideosLoaded(videos));
     } catch (e) {
       emit(VideosError(e.toString()));
