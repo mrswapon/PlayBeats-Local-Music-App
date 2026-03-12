@@ -29,6 +29,19 @@ class _VideosScreenState extends State<VideosScreen>
   bool _showSearch = false;
   List<Video> _allVideos = [];
   List<Video> _filteredVideos = [];
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+  
+  // ── Theme-aware colors ────────────────────────────────────────
+  Color get _textPrimary    => _isDark ? const Color(0xEBF0F0FF) : const Color(0xEB1A1A2E);
+  Color get _iconAlpha      => _isDark
+      ? Colors.white.withValues(alpha: 0.5)
+      : Colors.black.withValues(alpha: 0.4);
+  Color get _subtleAlpha    => _isDark
+      ? Colors.white.withValues(alpha: 0.04)
+      : Colors.black.withValues(alpha: 0.04);
+  Color get _borderAlpha    => _isDark
+      ? Colors.white.withValues(alpha: 0.06)
+      : Colors.black.withValues(alpha: 0.06);
 
   @override
   void initState() {
@@ -69,16 +82,105 @@ class _VideosScreenState extends State<VideosScreen>
     });
   }
 
+  // ── Header ──────────────────────────────────────────────────
+  Widget _buildHeader() {
+    return FadeTransition(
+      opacity: CurvedAnimation(
+        parent: _entryController,
+        curve: const Interval(0, 0.4, curve: Curves.easeOut),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(28, 16, 28, 8),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Videos',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                color: _textPrimary,
+                letterSpacing: -0.5,
+              ),
+            ),
+            GestureDetector(
+              onTap: _toggleSearch,
+              child: Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _showSearch
+                      ? _iconAlpha.withValues(alpha: 0.1)
+                      : _subtleAlpha,
+                  border: Border.all(color: _borderAlpha),
+                ),
+                child: Icon(
+                  _showSearch ? Icons.close_rounded : Icons.search_rounded,
+                  color: _iconAlpha, size: 18,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Search bar ──────────────────────────────────────────────
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: _subtleAlpha,
+          border: Border.all(color: _borderAlpha),
+        ),
+        child: TextField(
+          controller: _searchController,
+          focusNode: _searchFocusNode,
+          style: TextStyle(color: _textPrimary, fontSize: 14),
+          decoration: InputDecoration(
+            hintText: 'Search videos...',
+            hintStyle: TextStyle(color: _iconAlpha.withValues(alpha: 0.4), fontSize: 14),
+            prefixIcon:
+            Icon(Icons.search, color: _iconAlpha.withValues(alpha: 0.4), size: 20),
+            suffixIcon: _searchController.text.isNotEmpty
+                ? IconButton(
+              icon: Icon(Icons.clear,
+                  color: _iconAlpha.withValues(alpha: 0.5), size: 18),
+              onPressed: () {
+                _searchController.clear();
+                _filterVideos('');
+              },
+            )
+                : null,
+            filled: true,
+            fillColor: Colors.transparent,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+          onChanged: (query) {
+            setState(() {});
+            _filterVideos(query);
+          },
+          textInputAction: TextInputAction.search,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: isDark
+          colors: _isDark
               ? const [Color(0xFF0A0A18), Color(0xFF0F0F22), Color(0xFF131330)]
               : const [Color(0xFFE0E0EC), Color(0xFFE8E8F4), Color(0xFFF0F0FC)],
         ),
@@ -86,55 +188,8 @@ class _VideosScreenState extends State<VideosScreen>
       child: SafeArea(
         child: Column(
           children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.fromLTRB(28, 16, 28, 8),
-              child: Row(
-                children: [
-                  if (!_showSearch) ...[
-                    Expanded(
-                      child: Text(
-                        'Videos',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w800,
-                          color: c.textPrimary,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                    ),
-                  ] else ...[
-                    Expanded(
-                      child: _buildSearchBar(c),
-                    ),
-                  ],
-                  // Search/Close button
-                  GestureDetector(
-                    onTap: _toggleSearch,
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.04)
-                            : Colors.black.withValues(alpha: 0.04),
-                        border: Border.all(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.06)
-                              : Colors.black.withValues(alpha: 0.06),
-                        ),
-                      ),
-                      child: Icon(
-                        _showSearch ? Icons.close_rounded : Icons.search_rounded,
-                        color: c.iconDim,
-                        size: 18,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _buildHeader(),
+            if (_showSearch) _buildSearchBar(),
             const SizedBox(height: 8),
 
             // Content
@@ -217,50 +272,6 @@ class _VideosScreenState extends State<VideosScreen>
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildSearchBar(AppColors c) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        color: c.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: _searchController,
-        focusNode: _searchFocusNode,
-        style: TextStyle(color: c.textPrimary, fontSize: 14),
-        decoration: InputDecoration(
-          hintText: 'Search videos...',
-          hintStyle: TextStyle(color: c.textSecondary, fontSize: 14),
-          prefixIcon: Icon(Icons.search, color: c.iconDim, size: 20),
-          suffixIcon: _searchController.text.isNotEmpty
-              ? IconButton(
-                  icon: Icon(Icons.clear, color: c.iconDim, size: 18),
-                  onPressed: () {
-                    _searchController.clear();
-                    _filterVideos('');
-                  },
-                )
-              : null,
-          filled: true,
-          fillColor: c.surface,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide.none,
-          ),
-          contentPadding: const EdgeInsets.symmetric(vertical: 12),
-        ),
-        onChanged: _filterVideos,
-        textInputAction: TextInputAction.search,
       ),
     );
   }
