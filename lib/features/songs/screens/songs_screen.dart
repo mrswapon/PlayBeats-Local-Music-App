@@ -1,9 +1,15 @@
+import 'dart:io';
+
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:play_beats/core/theme/app_theme.dart';
 import 'package:play_beats/core/theme/neumorphic.dart';
 import 'package:play_beats/data/models/song_model.dart';
+import 'package:play_beats/data/repositories/favorites_repository.dart';
+import 'package:play_beats/data/repositories/playlists_repository.dart';
 import 'package:play_beats/data/repositories/song_metadata_repository.dart';
 import 'package:play_beats/features/player/bloc/player_bloc.dart';
 import 'package:play_beats/features/player/bloc/player_event.dart';
@@ -1146,7 +1152,7 @@ class _SongsScreenState extends State<SongsScreen>
               color: Colors.red[400], size: 48),
           title: Text('Delete Song?', style: TextStyle(color: c.textPrimary)),
           content: Text(
-            'This will remove "${song.title}" from your device storage. This action cannot be undone.',
+            'This will permanently delete "${song.displayTitle}" from your device. This action cannot be undone.',
             style: TextStyle(color: c.textSecondary),
           ),
           actions: [
@@ -1155,14 +1161,9 @@ class _SongsScreenState extends State<SongsScreen>
               child: Text('Cancel', style: TextStyle(color: c.textSecondary)),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.pop(dialogCtx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('File deletion requires additional setup'),
-                    backgroundColor: c.textSecondary,
-                  ),
-                );
+                await _deleteSong(context, song);
               },
               child: Text('Delete', style: TextStyle(color: Colors.red[400])),
             ),
@@ -1170,5 +1171,143 @@ class _SongsScreenState extends State<SongsScreen>
         );
       },
     );
+  }
+
+  // ── Delete song file ─────────────────────────────────────────
+  Future<void> _deleteSong(BuildContext context, Song song) async {
+    final c = context.colors;
+    
+    try {
+      final file = File(song.filePath);
+      
+      // Read repositories before async gaps
+      final metadataRepo = context.read<SongMetadataRepository>();
+      final favoritesRepo = context.read<FavoritesRepository>();
+      final playlistsRepo = context.read<PlaylistsRepository>();
+      
+      // Check Android version for permissions
+      final androidInfo = await DeviceInfoPlugin().androidInfo;
+      final sdkInt = androidInfo.version.sdkInt;
+      
+      // For Android 11+, check MANAGE_EXTERNAL_STORAGE permission
+      if (sdkInt >= 30) {
+        final manageStatus = await Permission.manageExternalStorage.status;
+        
+        if (manageStatus.isDenied || manageStatus.isPermanentlyDenied) {
+          // Request permission
+          final requested = await Permission.manageExternalStorage.request();
+          
+          if (!requested.isGranted) {
+            if (!context.mounted) return;
+            
+            // Show dialog to open settings
+            showDialog(
+              context: context,
+              builder: (dialogCtx) => AlertDialog(
+                backgroundColor: c.surface,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                icon: Icon(Icons.folder_open, color: c.accent, size: 48),
+                title: Text('Permission Required', style: TextStyle(color: c.textPrimary)),
+                content: Text(
+                  'To delete songs, please enable "All Files Access" permission in Settings.\n\n'
+                  'Tap "Open Settings" and toggle "Allow access to manage all files".',
+                  style: TextStyle(color: c.textSecondary),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogCtx),
+                    child: Text('Cancel', style: TextStyle(color: c.textSecondary)),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      Navigator.pop(dialogCtx);
+                      await openAppSettings();
+                    },
+                    child: Text('Open Settings', style: TextStyle(color: c.accent)),
+                  ),
+                ],
+              ),
+            );
+            return;
+          }
+        }
+      }
+      
+      // Check if file exists
+      final exists = await file.exists();
+      debugPrint('Song file exists: $exists, path: ${song.filePath}');
+      
+      if (exists) {
+        // Try to delete the file
+        await file.delete();
+        debugPrint('Song file deleted successfully');
+        
+        // Remove from favorites if present
+        if (favoritesRepo.isFavorite(song.id)) {
+          await favoritesRepo.removeFavorite(song.id);
+        }
+        
+        // Remove from all playlists
+        final allPlaylists = playlistsRepo.getAllPlaylists();
+        for (final playlist in allPlaylists) {
+          if (playlist.songIds.contains(song.id)) {
+            await playlistsRepo.removeSongFromPlaylist(playlist.id, song.id);
+          }
+        }
+        
+        // Clear custom title if exists
+        await metadataRepo.clearCustomTitle(song.id);
+        
+        if (!context.mounted) return;
+        
+        // Refresh the songs list
+        context.read<SongsBloc>().add(RefreshSongs());
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Song deleted successfully'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else {
+        if (!context.mounted) return;
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Song file not found'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error deleting song: $e');
+      
+      if (!context.mounted) return;
+      
+      // Check if it's a permission error
+      final isPermissionError = e.toString().contains('Permission denied') || 
+                                e.toString().contains('EROFS');
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            isPermissionError 
+                ? 'Permission denied. Please grant "All Files Access" in Settings.'
+                : 'Failed to delete song: $e',
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'Settings',
+            textColor: Colors.white,
+            onPressed: () async {
+              await openAppSettings();
+            },
+          ),
+        ),
+      );
+    }
   }
 }
