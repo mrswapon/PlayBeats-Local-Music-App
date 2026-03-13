@@ -42,6 +42,8 @@ class _SongsScreenState extends State<SongsScreen>
   final _searchFocusNode  = FocusNode();
   final _scrollController = ScrollController();
   bool _showSearch = false;
+  String _sortBy = 'title'; // title, artist, duration
+  bool _sortAscending = true;
 
   // GlobalKey per list item — used to locate items for centering
   final Map<int, GlobalKey> _itemKeys = {};
@@ -125,6 +127,104 @@ class _SongsScreenState extends State<SongsScreen>
     }
   }
 
+  void _showSortOptions() {
+    final c = context.colors;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: c.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                decoration: BoxDecoration(
+                  color: c.textSecondary.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+                child: Row(
+                  children: [
+                    Icon(Icons.sort, color: c.textPrimary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Sort By',
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _buildSortOption(sheetCtx, 'Title', 'title', Icons.title),
+              _buildSortOption(sheetCtx, 'Artist', 'artist', Icons.person),
+              _buildSortOption(sheetCtx, 'Duration', 'duration', Icons.access_time),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSortOption(BuildContext sheetCtx, String label, String value, IconData icon) {
+    final c = context.colors;
+    final isSelected = _sortBy == value;
+    return ListTile(
+      leading: Icon(icon, color: isSelected ? c.accent : c.textSecondary),
+      title: Text(
+        label,
+        style: TextStyle(
+          color: isSelected ? c.accent : c.textPrimary,
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+        ),
+      ),
+      trailing: isSelected
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _sortAscending = !_sortAscending;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: c.accent.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                      color: c.accent,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : null,
+      onTap: () {
+        setState(() {
+          _sortBy = value;
+        });
+        Navigator.pop(sheetCtx);
+      },
+    );
+  }
+
   bool get _isDark => Theme.of(context).brightness == Brightness.dark;
 
   @override
@@ -202,19 +302,38 @@ class _SongsScreenState extends State<SongsScreen>
         curve: const Interval(0, 0.4, curve: Curves.easeOut),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(28, 16, 28, 8),
+        padding: const EdgeInsets.fromLTRB(28, 16, 8, 8),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Songs',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                color: _textPrimary,
-                letterSpacing: -0.5,
+            Expanded(
+              child: Text(
+                'Songs',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: _textPrimary,
+                  letterSpacing: -0.5,
+                ),
               ),
             ),
+            // Sort button
+            GestureDetector(
+              onTap: _showSortOptions,
+              child: Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _subtleAlpha,
+                  border: Border.all(color: _borderAlpha),
+                ),
+                child: Icon(
+                  _sortAscending ? Icons.sort : Icons.sort,
+                  color: _iconAlpha, size: 18,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Search button
             GestureDetector(
               onTap: _toggleSearch,
               child: Container(
@@ -291,11 +410,31 @@ class _SongsScreenState extends State<SongsScreen>
 
   // ── Song list ───────────────────────────────────────────────
   Widget _buildSongList(List<Song> songs) {
+    // Sort songs based on selected criteria
+    final sortedSongs = List<Song>.from(songs);
+    sortedSongs.sort((a, b) {
+      int comparison;
+      switch (_sortBy) {
+        case 'title':
+          comparison = a.displayTitle.toLowerCase().compareTo(b.displayTitle.toLowerCase());
+          break;
+        case 'artist':
+          comparison = a.artist.toLowerCase().compareTo(b.artist.toLowerCase());
+          break;
+        case 'duration':
+          comparison = a.duration.compareTo(b.duration);
+          break;
+        default:
+          comparison = 0;
+      }
+      return _sortAscending ? comparison : -comparison;
+    });
+
     return BlocBuilder<PlayerBloc, PlayerState>(
       builder: (context, playerState) {
         final currentSongId = playerState.currentSong?.id;
         final isPlaying     = playerState is PlayerPlaying;
-        final activeIndex   = songs.indexWhere((s) => s.id == currentSongId);
+        final activeIndex   = sortedSongs.indexWhere((s) => s.id == currentSongId);
 
         // Trigger centering whenever the playing song changes
         if (currentSongId != null &&
@@ -315,7 +454,7 @@ class _SongsScreenState extends State<SongsScreen>
             padding: EdgeInsets.symmetric(
               vertical: MediaQuery.of(context).size.height * 0.38,
             ),
-            itemCount: songs.length,
+            itemCount: sortedSongs.length,
             itemBuilder: (context, index) {
               _itemKeys.putIfAbsent(index, () => GlobalKey());
 
@@ -323,7 +462,7 @@ class _SongsScreenState extends State<SongsScreen>
               final start = (0.1 + delay).clamp(0.0, 0.95);
               final end   = (start + 0.35).clamp(0.0, 1.0);
 
-              final isActive     = songs[index].id == currentSongId;
+              final isActive     = sortedSongs[index].id == currentSongId;
               final isNowPlaying = isActive && isPlaying;
 
               return FadeTransition(
@@ -341,11 +480,11 @@ class _SongsScreenState extends State<SongsScreen>
                   )),
                   child: _buildSongItem(
                     itemKey: _itemKeys[index]!,
-                    song: songs[index],
+                    song: sortedSongs[index],
                     index: index,
                     isActive: isActive,
                     isNowPlaying: isNowPlaying,
-                    playlist: songs,
+                    playlist: sortedSongs,
                   ),
                 ),
               );

@@ -29,6 +29,8 @@ class _VideosScreenState extends State<VideosScreen>
   bool _showSearch = false;
   List<Video> _allVideos = [];
   List<Video> _filteredVideos = [];
+  String _sortBy = 'title'; // title, duration, dateAdded
+  bool _sortAscending = true;
   bool get _isDark => Theme.of(context).brightness == Brightness.dark;
   
   // ── Theme-aware colors ────────────────────────────────────────
@@ -82,6 +84,103 @@ class _VideosScreenState extends State<VideosScreen>
     });
   }
 
+  void _showSortOptions() {
+    final c = context.colors;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: c.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                decoration: BoxDecoration(
+                  color: c.textSecondary.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 12),
+                child: Row(
+                  children: [
+                    Icon(Icons.sort, color: c.textPrimary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Sort By',
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _buildSortOption(sheetCtx, 'Title', 'title', Icons.title),
+              _buildSortOption(sheetCtx, 'Duration', 'duration', Icons.access_time),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSortOption(BuildContext sheetCtx, String label, String value, IconData icon) {
+    final c = context.colors;
+    final isSelected = _sortBy == value;
+    return ListTile(
+      leading: Icon(icon, color: isSelected ? c.accent : c.textSecondary),
+      title: Text(
+        label,
+        style: TextStyle(
+          color: isSelected ? c.accent : c.textPrimary,
+          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+        ),
+      ),
+      trailing: isSelected
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _sortAscending = !_sortAscending;
+                    });
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: c.accent.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
+                      color: c.accent,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : null,
+      onTap: () {
+        setState(() {
+          _sortBy = value;
+        });
+        Navigator.pop(sheetCtx);
+      },
+    );
+  }
+
   // ── Header ──────────────────────────────────────────────────
   Widget _buildHeader() {
     return FadeTransition(
@@ -90,19 +189,38 @@ class _VideosScreenState extends State<VideosScreen>
         curve: const Interval(0, 0.4, curve: Curves.easeOut),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(28, 16, 28, 8),
+        padding: const EdgeInsets.fromLTRB(28, 16, 8, 8),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Videos',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w800,
-                color: _textPrimary,
-                letterSpacing: -0.5,
+            Expanded(
+              child: Text(
+                'Videos',
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: _textPrimary,
+                  letterSpacing: -0.5,
+                ),
               ),
             ),
+            // Sort button
+            GestureDetector(
+              onTap: _showSortOptions,
+              child: Container(
+                width: 38, height: 38,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _subtleAlpha,
+                  border: Border.all(color: _borderAlpha),
+                ),
+                child: Icon(
+                  Icons.sort,
+                  color: _iconAlpha, size: 18,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Search button
             GestureDetector(
               onTap: _toggleSearch,
               child: Container(
@@ -238,6 +356,23 @@ class _VideosScreenState extends State<VideosScreen>
   }
 
   Widget _buildVideoList(List<Video> videos) {
+    // Sort videos based on selected criteria
+    final sortedVideos = List<Video>.from(videos);
+    sortedVideos.sort((a, b) {
+      int comparison;
+      switch (_sortBy) {
+        case 'title':
+          comparison = a.displayTitle.toLowerCase().compareTo(b.displayTitle.toLowerCase());
+          break;
+        case 'duration':
+          comparison = a.duration.compareTo(b.duration);
+          break;
+        default:
+          comparison = 0;
+      }
+      return _sortAscending ? comparison : -comparison;
+    });
+
     return RefreshIndicator(
       color: context.colors.textPrimary,
       backgroundColor: context.colors.surface,
@@ -246,7 +381,7 @@ class _VideosScreenState extends State<VideosScreen>
       },
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        itemCount: videos.length,
+        itemCount: sortedVideos.length,
         itemBuilder: (context, index) {
           final delay = index * 0.06;
           final start = (0.1 + delay).clamp(0.0, 0.95);
@@ -267,7 +402,7 @@ class _VideosScreenState extends State<VideosScreen>
                   parent: _entryController,
                   curve: Interval(start, end, curve: Curves.easeOutCubic),
                 )),
-                child: _buildVideoTile(videos[index]),
+                child: _buildVideoTile(sortedVideos[index]),
               ),
             ),
           );
