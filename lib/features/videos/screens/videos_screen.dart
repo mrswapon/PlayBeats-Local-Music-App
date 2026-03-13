@@ -29,8 +29,7 @@ class _VideosScreenState extends State<VideosScreen>
   bool _showSearch = false;
   List<Video> _allVideos = [];
   List<Video> _filteredVideos = [];
-  String _sortBy = 'title'; // title, duration, dateAdded
-  bool _sortAscending = true;
+  String _sortBy = 'title_asc'; // title_asc, title_desc, duration_asc, duration_desc
   bool get _isDark => Theme.of(context).brightness == Brightness.dark;
   
   // ── Theme-aware colors ────────────────────────────────────────
@@ -123,8 +122,10 @@ class _VideosScreenState extends State<VideosScreen>
                   ],
                 ),
               ),
-              _buildSortOption(sheetCtx, 'Title', 'title', Icons.title),
-              _buildSortOption(sheetCtx, 'Duration', 'duration', Icons.access_time),
+              _buildSortOption(sheetCtx, 'Title A to Z', 'title_asc', Icons.sort_by_alpha),
+              _buildSortOption(sheetCtx, 'Title Z to A', 'title_desc', Icons.sort_by_alpha),
+              _buildSortOption(sheetCtx, 'Duration (Shortest)', 'duration_asc', Icons.access_time),
+              _buildSortOption(sheetCtx, 'Duration (Longest)', 'duration_desc', Icons.access_time),
               const SizedBox(height: 16),
             ],
           ),
@@ -146,30 +147,10 @@ class _VideosScreenState extends State<VideosScreen>
         ),
       ),
       trailing: isSelected
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _sortAscending = !_sortAscending;
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: c.accent.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-                      color: c.accent,
-                      size: 16,
-                    ),
-                  ),
-                ),
-              ],
+          ? Icon(
+              Icons.check,
+              color: c.accent,
+              size: 20,
             )
           : null,
       onTap: () {
@@ -361,16 +342,22 @@ class _VideosScreenState extends State<VideosScreen>
     sortedVideos.sort((a, b) {
       int comparison;
       switch (_sortBy) {
-        case 'title':
+        case 'title_asc':
           comparison = a.displayTitle.toLowerCase().compareTo(b.displayTitle.toLowerCase());
           break;
-        case 'duration':
+        case 'title_desc':
+          comparison = b.displayTitle.toLowerCase().compareTo(a.displayTitle.toLowerCase());
+          break;
+        case 'duration_asc':
           comparison = a.duration.compareTo(b.duration);
           break;
+        case 'duration_desc':
+          comparison = b.duration.compareTo(a.duration);
+          break;
         default:
-          comparison = 0;
+          comparison = a.displayTitle.toLowerCase().compareTo(b.displayTitle.toLowerCase());
       }
-      return _sortAscending ? comparison : -comparison;
+      return comparison;
     });
 
     return RefreshIndicator(

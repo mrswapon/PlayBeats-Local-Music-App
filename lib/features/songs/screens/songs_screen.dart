@@ -42,8 +42,7 @@ class _SongsScreenState extends State<SongsScreen>
   final _searchFocusNode  = FocusNode();
   final _scrollController = ScrollController();
   bool _showSearch = false;
-  String _sortBy = 'title'; // title, artist, duration
-  bool _sortAscending = true;
+  String _sortBy = 'title_asc'; // title_asc, title_desc, artist_asc, artist_desc, duration_asc, duration_desc
 
   // GlobalKey per list item — used to locate items for centering
   final Map<int, GlobalKey> _itemKeys = {};
@@ -166,9 +165,12 @@ class _SongsScreenState extends State<SongsScreen>
                   ],
                 ),
               ),
-              _buildSortOption(sheetCtx, 'Title', 'title', Icons.title),
-              _buildSortOption(sheetCtx, 'Artist', 'artist', Icons.person),
-              _buildSortOption(sheetCtx, 'Duration', 'duration', Icons.access_time),
+              _buildSortOption(sheetCtx, 'Title A to Z', 'title_asc', Icons.sort_by_alpha, true),
+              _buildSortOption(sheetCtx, 'Title Z to A', 'title_desc', Icons.sort_by_alpha, false),
+              _buildSortOption(sheetCtx, 'Artist A to Z', 'artist_asc', Icons.person, true),
+              _buildSortOption(sheetCtx, 'Artist Z to A', 'artist_desc', Icons.person, false),
+              _buildSortOption(sheetCtx, 'Duration (Shortest)', 'duration_asc', Icons.access_time, true),
+              _buildSortOption(sheetCtx, 'Duration (Longest)', 'duration_desc', Icons.access_time, false),
               const SizedBox(height: 16),
             ],
           ),
@@ -177,7 +179,7 @@ class _SongsScreenState extends State<SongsScreen>
     );
   }
 
-  Widget _buildSortOption(BuildContext sheetCtx, String label, String value, IconData icon) {
+  Widget _buildSortOption(BuildContext sheetCtx, String label, String value, IconData icon, bool isAscending) {
     final c = context.colors;
     final isSelected = _sortBy == value;
     return ListTile(
@@ -190,30 +192,10 @@ class _SongsScreenState extends State<SongsScreen>
         ),
       ),
       trailing: isSelected
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _sortAscending = !_sortAscending;
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: c.accent.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-                      color: c.accent,
-                      size: 16,
-                    ),
-                  ),
-                ),
-              ],
+          ? Icon(
+              Icons.check,
+              color: c.accent,
+              size: 20,
             )
           : null,
       onTap: () {
@@ -327,7 +309,7 @@ class _SongsScreenState extends State<SongsScreen>
                   border: Border.all(color: _borderAlpha),
                 ),
                 child: Icon(
-                  _sortAscending ? Icons.sort : Icons.sort,
+                  Icons.sort,
                   color: _iconAlpha, size: 18,
                 ),
               ),
@@ -415,19 +397,28 @@ class _SongsScreenState extends State<SongsScreen>
     sortedSongs.sort((a, b) {
       int comparison;
       switch (_sortBy) {
-        case 'title':
+        case 'title_asc':
           comparison = a.displayTitle.toLowerCase().compareTo(b.displayTitle.toLowerCase());
           break;
-        case 'artist':
+        case 'title_desc':
+          comparison = b.displayTitle.toLowerCase().compareTo(a.displayTitle.toLowerCase());
+          break;
+        case 'artist_asc':
           comparison = a.artist.toLowerCase().compareTo(b.artist.toLowerCase());
           break;
-        case 'duration':
+        case 'artist_desc':
+          comparison = b.artist.toLowerCase().compareTo(a.artist.toLowerCase());
+          break;
+        case 'duration_asc':
           comparison = a.duration.compareTo(b.duration);
           break;
+        case 'duration_desc':
+          comparison = b.duration.compareTo(a.duration);
+          break;
         default:
-          comparison = 0;
+          comparison = a.displayTitle.toLowerCase().compareTo(b.displayTitle.toLowerCase());
       }
-      return _sortAscending ? comparison : -comparison;
+      return comparison;
     });
 
     return BlocBuilder<PlayerBloc, PlayerState>(
