@@ -89,19 +89,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                       GestureDetector(
                         onTap: () =>
                             context.read<BrowseBloc>().add(BackToBrowse()),
-                        child: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: Neu.circular(
-                            size: 36,
-                            color: c.surface,
-                            bgColor: c.background,
-                            shadowDark: c.shadowDark,
-                            shadowLight: c.shadowLight,
-                          ),
-                          child: Icon(Icons.arrow_back_ios_new_rounded,
-                              color: c.textSecondary, size: 16),
-                        ),
+                        child: _buildBackButton(),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -190,6 +178,25 @@ class BrowseScreenState extends State<BrowseScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBackButton() {
+    final c = context.colors;
+    return GestureDetector(
+      onTap: () => context.read<BrowseBloc>().add(BackToBrowse()),
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: Neu.circular(
+          color: c.surface,
+          bgColor: c.background,
+          shadowDark: c.shadowDark,
+          shadowLight: c.shadowLight,
+        ),
+        child: Icon(Icons.arrow_back_ios_new_rounded,
+            color: c.textSecondary, size: 16),
       ),
     );
   }

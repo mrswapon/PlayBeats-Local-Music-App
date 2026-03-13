@@ -2,7 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:play_beats/core/theme/app_theme.dart';
 import 'package:play_beats/features/browse/screens/browse_screen.dart';
-import 'package:play_beats/features/favorites/screens/favorites_screen.dart';
 import 'package:play_beats/features/player/widgets/mini_player.dart';
 import 'package:play_beats/features/playlists/screens/playlists_screen.dart';
 import 'package:play_beats/features/songs/screens/songs_screen.dart';
@@ -25,7 +24,6 @@ class _AppShellState extends State<AppShell> {
     const SongsScreen(),
     BrowseScreen(key: _browseKey),
     const PlaylistsScreen(),
-    const FavoritesScreen(),
   ];
 
   void _onTabTapped(int index) {
@@ -76,14 +74,14 @@ class _BottomNavBar extends StatefulWidget {
 
 class _BottomNavBarState extends State<_BottomNavBar>
     with TickerProviderStateMixin {
-  static const _labels = ['Videos','Songs', 'Browse', 'Playlists', 'Saved'];
+  static const _labels = ['Videos', 'Songs', 'Browse', 'Playlists'];
   late final List<AnimationController> _tabControllers;
 
   @override
   void initState() {
     super.initState();
     _tabControllers = List.generate(
-      5,
+      4,
       (i) => AnimationController(
         vsync: this,
         duration: const Duration(milliseconds: 380),
@@ -96,7 +94,7 @@ class _BottomNavBarState extends State<_BottomNavBar>
   void didUpdateWidget(covariant _BottomNavBar old) {
     super.didUpdateWidget(old);
     if (old.selected != widget.selected) {
-      for (int i = 0; i < 5; i++) {
+      for (int i = 0; i < 4; i++) {
         if (i == widget.selected) {
           _tabControllers[i].forward();
         } else {
@@ -164,7 +162,7 @@ class _BottomNavBarState extends State<_BottomNavBar>
               ),
             ),
             child: Row(
-              children: List.generate(5, (i) {
+              children: List.generate(4, (i) {
                 return Expanded(child: _buildNavItem(i, c));
               }),
             ),
@@ -310,18 +308,6 @@ class _BottomNavBarState extends State<_BottomNavBar>
             ),
           ),
         );
-      case 4:
-        return SizedBox(
-          width: 22,
-          height: 22,
-          child: CustomPaint(
-            painter: _HeartPainter(
-              active: active,
-              activeColor: c.accent,
-              inactiveColor: c.iconDim,
-            ),
-          ),
-        );
       default:
         return const SizedBox.shrink();
     }
@@ -444,56 +430,6 @@ class _PlanetPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _PlanetPainter old) => old.active != active;
-}
-
-// ─── Heart (Saved) ──────────────────────────────────────────────
-class _HeartPainter extends CustomPainter {
-  final bool active;
-  final Color activeColor;
-  final Color inactiveColor;
-  _HeartPainter(
-      {required this.active,
-      required this.activeColor,
-      required this.inactiveColor});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final color = active ? activeColor : inactiveColor;
-    final w = size.width;
-    final h = size.height;
-
-    final path = Path()
-      ..moveTo(w * 0.5, h * 0.35)
-      ..cubicTo(w * 0.5, h * 0.2, w * 0.35, h * 0.1, w * 0.25, h * 0.1)
-      ..cubicTo(w * 0.1, h * 0.1, w * 0.02, h * 0.25, w * 0.02, h * 0.38)
-      ..cubicTo(w * 0.02, h * 0.55, w * 0.2, h * 0.7, w * 0.5, h * 0.9)
-      ..cubicTo(w * 0.8, h * 0.7, w * 0.98, h * 0.55, w * 0.98, h * 0.38)
-      ..cubicTo(w * 0.98, h * 0.25, w * 0.9, h * 0.1, w * 0.75, h * 0.1)
-      ..cubicTo(w * 0.65, h * 0.1, w * 0.5, h * 0.2, w * 0.5, h * 0.35)
-      ..close();
-
-    if (active) {
-      canvas.drawPath(
-        path,
-        Paint()
-          ..color = color.withValues(alpha: 0.2)
-          ..style = PaintingStyle.fill,
-      );
-    }
-
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.8
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _HeartPainter old) => old.active != active;
 }
 
 // ─── Playlist Icon (Playlists) ──────────────────────────────────

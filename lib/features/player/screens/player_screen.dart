@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:play_beats/core/theme/app_theme.dart';
 import 'package:play_beats/data/models/song_model.dart';
 import 'package:play_beats/data/services/audio_player_service.dart';
 import 'package:play_beats/features/favorites/bloc/favorites_bloc.dart';
@@ -622,9 +623,10 @@ class _PlayerScreenState extends State<PlayerScreen>
   // ── Options menu ────────────────────────────────────────────
   void _showOptionsMenu(PlayerState state) {
     final song = state.currentSong;
+    final c = context.colors;
     showModalBottomSheet(
       context: context,
-      backgroundColor: _p.bg,
+      backgroundColor: c.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -638,7 +640,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                 height: 4,
                 margin: const EdgeInsets.only(top: 12, bottom: 8),
                 decoration: BoxDecoration(
-                  color: _p.textSecondary.withValues(alpha: 0.4),
+                  color: c.textSecondary.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -646,18 +648,18 @@ class _PlayerScreenState extends State<PlayerScreen>
               ListTile(
                 leading: Icon(
                   _isSleepTimerActive ? Icons.bedtime : Icons.bedtime,
-                  color: _isSleepTimerActive ? _p.textPrimary : _p.textSecondary,
+                  color: _isSleepTimerActive ? c.textPrimary : c.textSecondary,
                 ),
                 title: Text(
                   _isSleepTimerActive ? 'Edit Sleep Timer' : 'Sleep Timer',
                   style: TextStyle(
-                    color: _isSleepTimerActive ? _p.textPrimary : _p.textSecondary,
+                    color: _isSleepTimerActive ? c.textPrimary : c.textSecondary,
                   ),
                 ),
                 subtitle: _isSleepTimerActive
                     ? Text(
                         'Stops in ${_formatDuration(_sleepTimerRemaining)}',
-                        style: TextStyle(color: _p.textSecondary, fontSize: 11),
+                        style: TextStyle(color: c.textSecondary, fontSize: 11),
                       )
                     : null,
                 onTap: () {
@@ -699,9 +701,10 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   // ── Sleep timer dialog ──────────────────────────────────────
   void _showSleepTimerDialog() {
+    final c = context.colors;
     showModalBottomSheet(
       context: context,
-      backgroundColor: _p.bg,
+      backgroundColor: c.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -715,7 +718,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                 height: 4,
                 margin: const EdgeInsets.only(top: 12, bottom: 8),
                 decoration: BoxDecoration(
-                  color: _p.textSecondary.withValues(alpha: 0.4),
+                  color: c.textSecondary.withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -723,12 +726,12 @@ class _PlayerScreenState extends State<PlayerScreen>
                 padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
                 child: Row(
                   children: [
-                    Icon(Icons.bedtime, color: _p.textPrimary),
+                    Icon(Icons.bedtime, color: c.textPrimary),
                     const SizedBox(width: 8),
                     Text(
                       _isSleepTimerActive ? 'Edit Sleep Timer' : 'Sleep Timer',
                       style: TextStyle(
-                        color: _p.textPrimary,
+                        color: c.textPrimary,
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
                       ),
@@ -989,137 +992,143 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   // ── Add to Playlist sheet ───────────────────────────────────
   void _showAddToPlaylistSheet(Song song) {
+    final c = context.colors;
     showModalBottomSheet(
       context: context,
-      backgroundColor: _p.bg,
+      backgroundColor: c.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetCtx) {
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
-                decoration: BoxDecoration(
-                  color: _p.textSecondary.withValues(alpha: 0.4),
-                  borderRadius: BorderRadius.circular(2),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(top: 12, bottom: 8),
+                  decoration: BoxDecoration(
+                    color: c.textSecondary.withValues(alpha: 0.4),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
-                child: Row(
-                  children: [
-                    Text(
-                      'Select Playlist',
-                      style: TextStyle(
-                        color: _p.textPrimary,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.pop(sheetCtx);
-                        _showCreatePlaylistDialog(song);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: _p.surfaceLight.withValues(alpha: 0.2),
-                          borderRadius: BorderRadius.circular(12),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Select Playlist',
+                        style: TextStyle(
+                          color: c.textPrimary,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
                         ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.add, color: _p.textPrimary, size: 16),
-                            const SizedBox(width: 4),
-                            Text(
-                              'New',
-                              style: TextStyle(
-                                color: _p.textPrimary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pop(sheetCtx);
+                          _showCreatePlaylistDialog(song);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: c.surface.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.add, color: c.textPrimary, size: 16),
+                              const SizedBox(width: 4),
+                              Text(
+                                'New',
+                                style: TextStyle(
+                                  color: c.textPrimary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              BlocBuilder<PlaylistsBloc, PlaylistsState>(
-                builder: (context, state) {
-                  if (state is PlaylistsLoaded) {
-                    if (state.playlists.isEmpty) {
-                      return Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          'No playlists yet.\nCreate one to add songs.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: _p.textSecondary),
+                BlocBuilder<PlaylistsBloc, PlaylistsState>(
+                  builder: (context, state) {
+                    if (state is PlaylistsLoaded) {
+                      if (state.playlists.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            'No playlists yet.\nCreate one to add songs.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: c.textSecondary),
+                          ),
+                        );
+                      }
+                      return SizedBox(
+                        height: 300,
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: state.playlists.length,
+                          itemBuilder: (context, index) {
+                            final playlist = state.playlists[index];
+                            final isSongInPlaylist = playlist.songIds.contains(song.id);
+                            return ListTile(
+                              leading: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: c.surface,
+                                ),
+                                child: Icon(
+                                  Icons.queue_music,
+                                  color: c.textSecondary,
+                                  size: 18,
+                                ),
+                              ),
+                              title: Text(
+                                playlist.name,
+                                style: TextStyle(color: c.textPrimary),
+                              ),
+                              subtitle: Text(
+                                '${playlist.songIds.length} songs',
+                                style: TextStyle(color: c.textSecondary),
+                              ),
+                              trailing: isSongInPlaylist
+                                  ? Icon(Icons.check, color: c.textPrimary)
+                                  : null,
+                              onTap: () {
+                                if (!isSongInPlaylist) {
+                                  context.read<PlaylistsBloc>().add(
+                                    AddSongToPlaylist(
+                                      playlistId: playlist.id,
+                                      songId: song.id,
+                                    ),
+                                  );
+                                }
+                                Navigator.pop(sheetCtx);
+                              },
+                            );
+                          },
                         ),
                       );
                     }
-                    return ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: state.playlists.length,
-                      itemBuilder: (context, index) {
-                        final playlist = state.playlists[index];
-                        final isSongInPlaylist = playlist.songIds.contains(song.id);
-                        return ListTile(
-                          leading: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: _p.surface,
-                            ),
-                            child: Icon(
-                              Icons.queue_music,
-                              color: _p.textSecondary,
-                              size: 18,
-                            ),
-                          ),
-                          title: Text(
-                            playlist.name,
-                            style: TextStyle(color: _p.textPrimary),
-                          ),
-                          subtitle: Text(
-                            '${playlist.songIds.length} songs',
-                            style: TextStyle(color: _p.textSecondary),
-                          ),
-                          trailing: isSongInPlaylist
-                              ? Icon(Icons.check, color: _p.textPrimary)
-                              : null,
-                          onTap: () {
-                            if (!isSongInPlaylist) {
-                              context.read<PlaylistsBloc>().add(
-                                AddSongToPlaylist(
-                                  playlistId: playlist.id,
-                                  songId: song.id,
-                                ),
-                              );
-                            }
-                            Navigator.pop(sheetCtx);
-                          },
-                        );
-                      },
+                    return const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Center(child: CircularProgressIndicator()),
                     );
-                  }
-                  return const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-            ],
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
           ),
         );
       },
@@ -1180,12 +1189,13 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   // ── Playlist sheet ──────────────────────────────────────────
   void _showPlaylistSheet(PlayerState state) {
+    final c = context.colors;
     final playlist = state.playlist;
     if (playlist.isEmpty) return;
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: _p.bg,
+      backgroundColor: c.background,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -1198,7 +1208,7 @@ class _PlayerScreenState extends State<PlayerScreen>
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: _p.textSecondary.withValues(alpha: 0.4),
+                color: c.textSecondary.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -1209,7 +1219,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                   Text(
                     'Queue',
                     style: TextStyle(
-                      color: _p.textPrimary,
+                      color: c.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1217,7 +1227,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                   const Spacer(),
                   Text(
                     '${playlist.length} songs',
-                    style: TextStyle(color: _p.textSecondary, fontSize: 13),
+                    style: TextStyle(color: c.textSecondary, fontSize: 13),
                   ),
                 ],
               ),
@@ -1235,20 +1245,20 @@ class _PlayerScreenState extends State<PlayerScreen>
                     leading: isCurrent
                         ? Icon(
                             Icons.play_arrow_rounded,
-                            color: _p.textPrimary,
+                            color: c.textPrimary,
                             size: 20,
                           )
                         : Text(
                             '${index + 1}',
                             style: TextStyle(
-                              color: _p.textSecondary,
+                              color: c.textSecondary,
                               fontSize: 13,
                             ),
                           ),
                     title: Text(
                       s.title,
                       style: TextStyle(
-                        color: _p.textPrimary,
+                        color: c.textPrimary,
                         fontSize: 14,
                         fontWeight: isCurrent
                             ? FontWeight.w600
@@ -1259,7 +1269,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                     ),
                     subtitle: Text(
                       s.artist,
-                      style: TextStyle(color: _p.textSecondary, fontSize: 12),
+                      style: TextStyle(color: c.textSecondary, fontSize: 12),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),

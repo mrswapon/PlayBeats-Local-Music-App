@@ -40,7 +40,7 @@ class SongTile extends StatelessWidget {
               );
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: Neu.raised(
             radius: 18,
             color: c.surface,
@@ -50,88 +50,61 @@ class SongTile extends StatelessWidget {
           child: Row(
             children: [
               // Circular artwork thumbnail
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: c.background,
-                  boxShadow: [
-                    BoxShadow(
-                      color: c.shadowDark,
-                      offset: const Offset(2, 2),
-                      blurRadius: 4,
+              SizedBox(
+                width: 40,
+                height: 40,
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: c.background,
+                    boxShadow: [
+                      BoxShadow(
+                        color: c.shadowDark,
+                        offset: const Offset(2, 2),
+                        blurRadius: 4,
+                      ),
+                      BoxShadow(
+                        color: c.shadowLight.withValues(alpha: 0.3),
+                        offset: const Offset(-2, -2),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: ArtworkWidget(
+                      id: song.numericId,
+                      size: 40,
+                      borderRadius: 20,
                     ),
-                    BoxShadow(
-                      color: c.shadowLight.withValues(alpha: 0.3),
-                      offset: const Offset(-2, -2),
-                      blurRadius: 4,
-                    ),
-                  ],
-                ),
-                child: ClipOval(
-                  child: ArtworkWidget(
-                    id: song.numericId,
-                    size: 50,
-                    borderRadius: 25,
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 8),
 
               // Song info
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            song.displayTitle,
-                            style: TextStyle(
-                              color: c.textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (song.hasCustomTitle) ...[
-                          Icon(
-                            Icons.edit,
-                            size: 12,
-                            color: c.iconDim,
-                          ),
-                        ],
-                      ],
+                    Text(
+                      song.displayTitle,
+                      style: TextStyle(
+                        color: c.textPrimary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            song.artist,
-                            style: TextStyle(
-                              color: c.textSecondary,
-                              fontSize: 12,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (song.duration > 0) ...[
-                          const SizedBox(width: 8),
-                          Text(
-                            song.durationFormatted,
-                            style: TextStyle(
-                              color: c.iconDim,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ],
+                    const SizedBox(height: 2),
+                    Text(
+                      song.artist,
+                      style: TextStyle(
+                        color: c.textSecondary,
+                        fontSize: 9,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -157,24 +130,11 @@ class SongTile extends StatelessWidget {
                     child: Icon(
                       isFav ? Icons.favorite : Icons.favorite_border,
                       color: isFav ? c.accent : c.iconDim,
-                      size: 20,
+                      size: 16,
                     ),
                   );
                 },
               ),
-
-              // More options button
-              if (showMoreOptions) ...[
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () => _showOptionsSheet(context),
-                  child: Icon(
-                    Icons.more_vert,
-                    color: c.iconDim,
-                    size: 20,
-                  ),
-                ),
-              ],
             ],
           ),
         ),
