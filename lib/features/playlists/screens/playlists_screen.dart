@@ -143,6 +143,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen>
         final playlist = playlists[index];
         return GestureDetector(
           onTap: () => _navigateToPlaylistDetail(playlist),
+          onLongPress: () => _showPlaylistOptions(playlist),
           child: Container(
             decoration: Neu.raised(
               radius: 20,
@@ -375,6 +376,137 @@ class _PlaylistsScreenState extends State<PlaylistsScreen>
           ),
         ],
       ),
+    );
+  }
+
+  void _showPlaylistOptions(Playlist playlist) {
+    final c = context.colors;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: c.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                decoration: BoxDecoration(
+                  color: c.textSecondary.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Rename
+              ListTile(
+                leading: Icon(Icons.edit, color: c.textPrimary),
+                title: Text('Rename', style: TextStyle(color: c.textPrimary)),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _showRenamePlaylistDialog(playlist);
+                },
+              ),
+              // Delete
+              ListTile(
+                leading: Icon(Icons.delete_outline, color: Colors.red[400]),
+                title: Text('Delete', style: TextStyle(color: Colors.red[400])),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _showDeleteConfirmation(playlist);
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showRenamePlaylistDialog(Playlist playlist) {
+    final c = context.colors;
+    final controller = TextEditingController(text: playlist.name);
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          backgroundColor: c.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Rename Playlist', style: TextStyle(color: c.textPrimary)),
+          content: TextField(
+            controller: controller,
+            style: TextStyle(color: c.textPrimary),
+            decoration: InputDecoration(
+              hintText: 'Playlist name',
+              hintStyle: TextStyle(color: c.textSecondary),
+              filled: true,
+              fillColor: c.background,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text('Cancel', style: TextStyle(color: c.textSecondary)),
+            ),
+            TextButton(
+              onPressed: () {
+                if (controller.text.trim().isNotEmpty) {
+                  context.read<PlaylistsBloc>().add(
+                    RenamePlaylist(
+                      playlistId: playlist.id,
+                      newName: controller.text.trim(),
+                    ),
+                  );
+                  Navigator.pop(dialogCtx);
+                }
+              },
+              child: Text('Rename', style: TextStyle(color: c.accent)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmation(Playlist playlist) {
+    final c = context.colors;
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          backgroundColor: c.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          icon: Icon(Icons.warning_amber_rounded,
+              color: Colors.red[400], size: 48),
+          title: Text('Delete Playlist?', style: TextStyle(color: c.textPrimary)),
+          content: Text(
+            'Are you sure you want to delete "${playlist.name}"? This action cannot be undone.',
+            style: TextStyle(color: c.textSecondary),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text('Cancel', style: TextStyle(color: c.textSecondary)),
+            ),
+            TextButton(
+              onPressed: () {
+                context.read<PlaylistsBloc>().add(DeletePlaylist(playlist.id));
+                Navigator.pop(dialogCtx);
+              },
+              child: Text('Delete', style: TextStyle(color: Colors.red[400])),
+            ),
+          ],
+        );
+      },
     );
   }
 
