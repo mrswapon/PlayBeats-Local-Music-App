@@ -1,6 +1,8 @@
 import 'dart:math';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:play_beats/data/models/song_model.dart';
 import 'package:play_beats/data/services/audio_player_service.dart';
 import 'package:play_beats/features/favorites/bloc/favorites_bloc.dart';
 import 'package:play_beats/features/favorites/bloc/favorites_event.dart';
@@ -8,6 +10,9 @@ import 'package:play_beats/features/favorites/bloc/favorites_state.dart';
 import 'package:play_beats/features/player/bloc/player_bloc.dart';
 import 'package:play_beats/features/player/bloc/player_event.dart';
 import 'package:play_beats/features/player/bloc/player_state.dart';
+import 'package:play_beats/features/playlists/bloc/playlists_bloc.dart';
+import 'package:play_beats/features/playlists/bloc/playlists_event.dart';
+import 'package:play_beats/features/playlists/bloc/playlists_state.dart';
 
 // ─── Player palette ──────────────────────────────────────────
 class _PC {
@@ -66,6 +71,12 @@ class _PlayerScreenState extends State<PlayerScreen>
   late final AnimationController _spinController;
   late final AnimationController _eqController;
   late final AnimationController _armController;
+  
+  // Sleep timer
+  Duration? _sleepTimerDuration;
+  Duration _sleepTimerRemaining = Duration.zero;
+  Timer? _sleepTimer;
+  bool _isSleepTimerActive = false;
 
   _PC get _p => _PC.of(context);
 
@@ -93,6 +104,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   @override
   void dispose() {
+    _sleepTimer?.cancel();
     _spinController.dispose();
     _eqController.dispose();
     _armController.dispose();
@@ -146,54 +158,56 @@ class _PlayerScreenState extends State<PlayerScreen>
           final audioService = context.read<AudioPlayerService>();
 
           return SafeArea(
-            child: Column(
-              children: [
-                const SizedBox(height: 8),
-                _buildTopBar(state),
-                const SizedBox(height: 20),
-                _buildTurntable(ttSize, isPlaying),
-                const SizedBox(height: 20),
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  const SizedBox(height: 4),
+                  _buildTopBar(state),
+                  const SizedBox(height: 12),
+                  _buildTurntable(ttSize, isPlaying),
+                  const SizedBox(height: 12),
 
-                // ── Song info ──
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Text(
-                    song.title,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: _p.textPrimary,
-                      letterSpacing: 0.3,
+                  // ── Song info ──
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      song.title,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: _p.textPrimary,
+                        letterSpacing: 0.3,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  song.artist,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: _p.textSecondary,
+                  const SizedBox(height: 6),
+                  Text(
+                    song.artist,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: _p.textSecondary,
+                    ),
                   ),
-                ),
 
-                const Spacer(),
+                  const SizedBox(height: 24),
 
-                // ── Equalizer ──
-                _buildEqualizer(isPlaying),
-                const SizedBox(height: 16),
+                  // ── Equalizer ──
+                  _buildEqualizer(isPlaying),
+                  const SizedBox(height: 8),
 
-                // ── Progress bar ──
-                _buildProgressBar(audioService),
-                const SizedBox(height: 20),
+                  // ── Progress bar ──
+                  _buildProgressBar(audioService),
+                  const SizedBox(height: 12),
 
-                // ── Controls ──
-                _buildControls(isPlaying, isBuffering),
-                const SizedBox(height: 20),
-              ],
+                  // ── Controls ──
+                  _buildControls(isPlaying, isBuffering),
+                  const SizedBox(height: 16),
+                ],
+              ),
             ),
           );
         },
@@ -249,9 +263,49 @@ class _PlayerScreenState extends State<PlayerScreen>
             },
           ),
           const Spacer(),
+          // Queue button
           GestureDetector(
             onTap: () => _showPlaylistSheet(state),
             child: _neuCircleIcon(Icons.queue_music_rounded, 42, 20),
+          ),
+          const SizedBox(width: 8),
+          // Sleep timer indicator
+          if (_isSleepTimerActive)
+            GestureDetector(
+              onTap: () => _showSleepTimerDialog(),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: _p.surfaceLight.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _p.textSecondary.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.bedtime,
+                      color: _p.textPrimary,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      _formatDuration(_sleepTimerRemaining),
+                      style: TextStyle(
+                        color: _p.textPrimary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          if (_isSleepTimerActive) const SizedBox(width: 4),
+          // Three-dot menu
+          GestureDetector(
+            onTap: () => _showOptionsMenu(state),
+            child: _neuCircleIcon(Icons.more_vert, 42, 20),
           ),
         ],
       ),
@@ -562,6 +616,565 @@ class _PlayerScreenState extends State<PlayerScreen>
           ),
         ],
       ),
+    );
+  }
+
+  // ── Options menu ────────────────────────────────────────────
+  void _showOptionsMenu(PlayerState state) {
+    final song = state.currentSong;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: _p.bg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                decoration: BoxDecoration(
+                  color: _p.textSecondary.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Sleep timer
+              ListTile(
+                leading: Icon(
+                  _isSleepTimerActive ? Icons.bedtime : Icons.bedtime,
+                  color: _isSleepTimerActive ? _p.textPrimary : _p.textSecondary,
+                ),
+                title: Text(
+                  _isSleepTimerActive ? 'Edit Sleep Timer' : 'Sleep Timer',
+                  style: TextStyle(
+                    color: _isSleepTimerActive ? _p.textPrimary : _p.textSecondary,
+                  ),
+                ),
+                subtitle: _isSleepTimerActive
+                    ? Text(
+                        'Stops in ${_formatDuration(_sleepTimerRemaining)}',
+                        style: TextStyle(color: _p.textSecondary, fontSize: 11),
+                      )
+                    : null,
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _showSleepTimerDialog();
+                },
+              ),
+              // Add to playlist
+              if (song != null)
+                BlocBuilder<FavoritesBloc, FavoritesState>(
+                  builder: (context, favState) {
+                    final isFav = favState is FavoritesLoaded &&
+                        favState.isFavorite(song.id);
+                    return ListTile(
+                      leading: Icon(
+                        isFav ? Icons.playlist_add_check : Icons.playlist_add,
+                        color: isFav ? _p.textPrimary : _p.textSecondary,
+                      ),
+                      title: Text(
+                        isFav ? 'Added to Playlist' : 'Add to Playlist',
+                        style: TextStyle(
+                          color: isFav ? _p.textPrimary : _p.textSecondary,
+                        ),
+                      ),
+                      onTap: () {
+                        Navigator.pop(sheetCtx);
+                        _showAddToPlaylistSheet(song);
+                      },
+                    );
+                  },
+                ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ── Sleep timer dialog ──────────────────────────────────────
+  void _showSleepTimerDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: _p.bg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                decoration: BoxDecoration(
+                  color: _p.textSecondary.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.bedtime, color: _p.textPrimary),
+                    const SizedBox(width: 8),
+                    Text(
+                      _isSleepTimerActive ? 'Edit Sleep Timer' : 'Sleep Timer',
+                      style: TextStyle(
+                        color: _p.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Preset options
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    _buildTimerPresetChip(sheetCtx, '5 min', Duration(minutes: 5)),
+                    _buildTimerPresetChip(sheetCtx, '10 min', Duration(minutes: 10)),
+                    _buildTimerPresetChip(sheetCtx, '15 min', Duration(minutes: 15)),
+                    _buildTimerPresetChip(sheetCtx, '20 min', Duration(minutes: 20)),
+                    _buildTimerPresetChip(sheetCtx, '30 min', Duration(minutes: 30)),
+                    _buildTimerPresetChip(sheetCtx, '1 hour', Duration(hours: 1)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Custom time
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _buildTimerPresetChip(
+                        sheetCtx,
+                        'Custom',
+                        null,
+                        isCustom: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Cancel timer button
+              if (_isSleepTimerActive) ...[
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        _cancelSleepTimer();
+                        Navigator.pop(sheetCtx);
+                      },
+                      icon: const Icon(Icons.cancel),
+                      label: const Text('Cancel Timer'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red[400],
+                        side: BorderSide(color: Colors.red[400]!),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTimerPresetChip(
+    BuildContext sheetCtx,
+    String label,
+    Duration? duration, {
+    bool isCustom = false,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        if (isCustom) {
+          Navigator.pop(sheetCtx);
+          _showCustomTimePicker();
+        } else if (duration != null) {
+          _startSleepTimer(duration);
+          Navigator.pop(sheetCtx);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: _isSleepTimerActive && _sleepTimerDuration == duration
+              ? _p.surfaceLight
+              : _p.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: _isSleepTimerActive && _sleepTimerDuration == duration
+                ? _p.textPrimary
+                : _p.textSecondary.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: _isSleepTimerActive && _sleepTimerDuration == duration
+                ? _p.textPrimary
+                : _p.textSecondary,
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCustomTimePicker() {
+    final hoursController = TextEditingController(text: '0');
+    final minutesController = TextEditingController(text: '30');
+    
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          backgroundColor: _p.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Custom Time', style: TextStyle(color: _p.textPrimary)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Hours', style: TextStyle(color: _p.textSecondary)),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: hoursController,
+                          style: TextStyle(color: _p.textPrimary),
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: _p.bg,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('Minutes', style: TextStyle(color: _p.textSecondary)),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: minutesController,
+                          style: TextStyle(color: _p.textPrimary),
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: _p.bg,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text('Cancel', style: TextStyle(color: _p.textSecondary)),
+            ),
+            TextButton(
+              onPressed: () {
+                final hours = int.tryParse(hoursController.text) ?? 0;
+                final minutes = int.tryParse(minutesController.text) ?? 30;
+                final duration = Duration(hours: hours, minutes: minutes);
+                
+                if (duration.inMinutes > 0) {
+                  _startSleepTimer(duration);
+                  Navigator.pop(dialogCtx);
+                }
+              },
+              child: Text('Set', style: TextStyle(color: _p.textPrimary)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _startSleepTimer(Duration duration) {
+    _sleepTimer?.cancel();
+    _sleepTimerDuration = duration;
+    _sleepTimerRemaining = duration;
+    _isSleepTimerActive = true;
+    
+    _sleepTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_sleepTimerRemaining.inSeconds > 0) {
+        setState(() {
+          _sleepTimerRemaining = _sleepTimerRemaining - const Duration(seconds: 1);
+        });
+      } else {
+        // Time's up - stop playback
+        _cancelSleepTimer();
+        context.read<PlayerBloc>().add(StopSong());
+        
+        // Show notification
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Sleep timer finished. Playback stopped.'),
+            backgroundColor: _p.surfaceLight,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    });
+  }
+
+  void _cancelSleepTimer() {
+    _sleepTimer?.cancel();
+    _sleepTimer = null;
+    _sleepTimerDuration = null;
+    _sleepTimerRemaining = Duration.zero;
+    _isSleepTimerActive = false;
+  }
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+    
+    if (hours > 0) {
+      return '${hours}h ${minutes}m ${seconds}s';
+    } else if (minutes > 0) {
+      return '${minutes}m ${seconds}s';
+    } else {
+      return '${seconds}s';
+    }
+  }
+
+  // ── Add to Playlist sheet ───────────────────────────────────
+  void _showAddToPlaylistSheet(Song song) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: _p.bg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(top: 12, bottom: 8),
+                decoration: BoxDecoration(
+                  color: _p.textSecondary.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+                child: Row(
+                  children: [
+                    Text(
+                      'Select Playlist',
+                      style: TextStyle(
+                        color: _p.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.pop(sheetCtx);
+                        _showCreatePlaylistDialog(song);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _p.surfaceLight.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.add, color: _p.textPrimary, size: 16),
+                            const SizedBox(width: 4),
+                            Text(
+                              'New',
+                              style: TextStyle(
+                                color: _p.textPrimary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              BlocBuilder<PlaylistsBloc, PlaylistsState>(
+                builder: (context, state) {
+                  if (state is PlaylistsLoaded) {
+                    if (state.playlists.isEmpty) {
+                      return Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          'No playlists yet.\nCreate one to add songs.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: _p.textSecondary),
+                        ),
+                      );
+                    }
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: state.playlists.length,
+                      itemBuilder: (context, index) {
+                        final playlist = state.playlists[index];
+                        final isSongInPlaylist = playlist.songIds.contains(song.id);
+                        return ListTile(
+                          leading: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _p.surface,
+                            ),
+                            child: Icon(
+                              Icons.queue_music,
+                              color: _p.textSecondary,
+                              size: 18,
+                            ),
+                          ),
+                          title: Text(
+                            playlist.name,
+                            style: TextStyle(color: _p.textPrimary),
+                          ),
+                          subtitle: Text(
+                            '${playlist.songIds.length} songs',
+                            style: TextStyle(color: _p.textSecondary),
+                          ),
+                          trailing: isSongInPlaylist
+                              ? Icon(Icons.check, color: _p.textPrimary)
+                              : null,
+                          onTap: () {
+                            if (!isSongInPlaylist) {
+                              context.read<PlaylistsBloc>().add(
+                                AddSongToPlaylist(
+                                  playlistId: playlist.id,
+                                  songId: song.id,
+                                ),
+                              );
+                            }
+                            Navigator.pop(sheetCtx);
+                          },
+                        );
+                      },
+                    );
+                  }
+                  return const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ── Create Playlist Dialog ──────────────────────────────────
+  void _showCreatePlaylistDialog(Song song) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          backgroundColor: _p.surface,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('New Playlist', style: TextStyle(color: _p.textPrimary)),
+          content: TextField(
+            controller: controller,
+            style: TextStyle(color: _p.textPrimary),
+            decoration: InputDecoration(
+              hintText: 'Playlist name',
+              hintStyle: TextStyle(color: _p.textSecondary),
+              filled: true,
+              fillColor: _p.bg,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+            autofocus: true,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: Text('Cancel', style: TextStyle(color: _p.textSecondary)),
+            ),
+            TextButton(
+              onPressed: () {
+                if (controller.text.trim().isNotEmpty) {
+                  context.read<PlaylistsBloc>().add(
+                    CreatePlaylist(controller.text.trim()),
+                  );
+                  Navigator.pop(dialogCtx);
+                  Future.delayed(const Duration(milliseconds: 200), () {
+                    if (context.mounted) {
+                      _showAddToPlaylistSheet(song);
+                    }
+                  });
+                }
+              },
+              child: Text('Create', style: TextStyle(color: _p.textPrimary)),
+            ),
+          ],
+        );
+      },
     );
   }
 

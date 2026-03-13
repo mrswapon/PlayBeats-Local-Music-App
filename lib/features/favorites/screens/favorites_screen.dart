@@ -179,6 +179,7 @@ class _FavoritesScreenState extends State<FavoritesScreen>
                             song: state.favorites[index],
                             playlist: state.favorites,
                             index: index,
+                            showMoreOptions: true,
                           ),
                         ),
                       );

@@ -179,6 +179,7 @@ class BrowseScreenState extends State<BrowseScreen> {
                         song: state.songs[index],
                         playlist: state.songs,
                         index: index,
+                        showMoreOptions: true,
                       );
                     },
                   );

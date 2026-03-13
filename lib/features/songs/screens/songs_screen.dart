@@ -541,8 +541,14 @@ class _SongsScreenState extends State<SongsScreen>
       },
       child: GestureDetector(
         key: itemKey,
-        onTap: () => context.read<PlayerBloc>()
-            .add(PlaySong(song: song, playlist: playlist)),
+        onTap: () {
+          context.read<PlayerBloc>().add(PlaySong(song: song, playlist: playlist));
+          // Navigate to player screen after a short delay
+          Future.delayed(const Duration(milliseconds: 20), () {
+            // ignore: use_build_context_synchronously
+            Navigator.of(context).pushNamed('/player');
+          });
+        },
         onLongPress: () => _showSongOptions(context, song, playlist),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 350),

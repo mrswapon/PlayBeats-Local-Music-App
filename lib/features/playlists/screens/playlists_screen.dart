@@ -27,7 +27,7 @@ class _PlaylistsScreenState extends State<PlaylistsScreen>
     super.initState();
     _entryController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 100),
     );
     context.read<PlaylistsBloc>().add(LoadPlaylists());
   }
@@ -597,6 +597,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                     song: playlistSongs[index],
                     playlist: playlistSongs,
                     index: index,
+                    showMoreOptions: true,
                   );
                 },
               );
