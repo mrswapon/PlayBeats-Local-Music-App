@@ -13,8 +13,8 @@ import 'package:play_beats/features/player/bloc/player_event.dart';
 import 'package:play_beats/features/playlists/bloc/playlists_bloc.dart';
 import 'package:play_beats/features/playlists/bloc/playlists_event.dart';
 import 'package:play_beats/features/playlists/bloc/playlists_state.dart';
-import 'package:play_beats/features/songs/bloc/songs_bloc.dart';
-import 'package:play_beats/features/songs/bloc/songs_state.dart';
+import 'package:play_beats/features/audios/bloc/audios_bloc.dart';
+import 'package:play_beats/features/audios/bloc/audios_state.dart';
 
 class PlaylistsScreen extends StatefulWidget {
   const PlaylistsScreen({super.key});
@@ -676,11 +676,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       ),
       body: BlocBuilder<PlaylistsBloc, PlaylistsState>(
         builder: (context, state) {
-          // Get all songs from SongsBloc to map playlist song IDs to Song objects
-          return BlocBuilder<SongsBloc, SongsState>(
+          // Get all songs from AudiosBloc to map playlist song IDs to Song objects
+          return BlocBuilder<AudiosBloc, AudiosState>(
             builder: (context, songsState) {
               List<Song> playlistSongs = [];
-              if (songsState is SongsLoaded) {
+              if (songsState is AudiosLoaded) {
                 final songMap = {
                   for (var song in songsState.allSongs) song.id: song
                 };

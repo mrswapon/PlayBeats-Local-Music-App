@@ -17,7 +17,7 @@ import 'package:play_beats/features/player/screens/player_screen.dart';
 import 'package:play_beats/features/playlists/bloc/playlists_bloc.dart';
 import 'package:play_beats/features/playlists/bloc/playlists_event.dart';
 import 'package:play_beats/features/splash/screens/splash_screen.dart';
-import 'package:play_beats/features/songs/bloc/songs_bloc.dart';
+import 'package:play_beats/features/audios/bloc/audios_bloc.dart';
 import 'package:play_beats/features/videos/bloc/videos_bloc.dart';
 
 class PlayBeatsApp extends StatelessWidget {
@@ -42,7 +42,7 @@ class PlayBeatsApp extends StatelessWidget {
         providers: [
           BlocProvider(create: (_) => ThemeCubit()),
           BlocProvider(
-            create: (context) => SongsBloc(
+            create: (context) => AudiosBloc(
               repository: context.read<LocalMusicRepository>(),
             ),
           ),

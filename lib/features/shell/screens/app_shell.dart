@@ -4,7 +4,7 @@ import 'package:play_beats/core/theme/app_theme.dart';
 import 'package:play_beats/features/browse/screens/browse_screen.dart';
 import 'package:play_beats/features/player/widgets/mini_player.dart';
 import 'package:play_beats/features/playlists/screens/playlists_screen.dart';
-import 'package:play_beats/features/songs/screens/songs_screen.dart';
+import 'package:play_beats/features/audios/screens/audios_screen.dart';
 import 'package:play_beats/features/videos/screens/videos_screen.dart';
 
 class AppShell extends StatefulWidget {
@@ -21,7 +21,7 @@ class _AppShellState extends State<AppShell> {
 
   late final List<Widget> _screens = [
     const VideosScreen(),
-    const SongsScreen(),
+    const AudiosScreen(),
     BrowseScreen(key: _browseKey),
     const PlaylistsScreen(),
   ];
@@ -74,7 +74,7 @@ class _BottomNavBar extends StatefulWidget {
 
 class _BottomNavBarState extends State<_BottomNavBar>
     with TickerProviderStateMixin {
-  static const _labels = ['Videos', 'Songs', 'Browse', 'Playlists'];
+  static const _labels = ['Videos', 'Audios', 'Browse', 'Playlists'];
   late final List<AnimationController> _tabControllers;
 
   @override
@@ -273,16 +273,10 @@ class _BottomNavBarState extends State<_BottomNavBar>
           ),
         );
       case 1:
-        return SizedBox(
-          width: 22,
-          height: 22,
-          child: CustomPaint(
-            painter: _VinylNavPainter(
-              active: active,
-              activeColor: c.accent,
-              inactiveColor: c.iconDim,
-            ),
-          ),
+        return Icon(
+          Icons.music_note_rounded,
+          size: 22,
+          color: active ? c.accent : c.iconDim,
         );
       case 2:
         return SizedBox(
@@ -312,71 +306,6 @@ class _BottomNavBarState extends State<_BottomNavBar>
         return const SizedBox.shrink();
     }
   }
-}
-
-// ─── Vinyl Disc (Home) ──────────────────────────────────────────
-class _VinylNavPainter extends CustomPainter {
-  final bool active;
-  final Color activeColor;
-  final Color inactiveColor;
-  _VinylNavPainter(
-      {required this.active,
-      required this.activeColor,
-      required this.inactiveColor});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final color = active ? activeColor : inactiveColor;
-    final cx = size.width / 2;
-    final cy = size.height / 2;
-    final r = size.width / 2 - 1;
-
-    // Filled disc background when active
-    if (active) {
-      canvas.drawCircle(
-        Offset(cx, cy),
-        r,
-        Paint()
-          ..color = color.withValues(alpha: 0.15)
-          ..style = PaintingStyle.fill,
-      );
-    }
-
-    // Outer ring
-    canvas.drawCircle(
-      Offset(cx, cy),
-      r,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.8,
-    );
-
-    // Grooves
-    for (var i = 1; i <= 3; i++) {
-      canvas.drawCircle(
-        Offset(cx, cy),
-        r * (0.3 + i * 0.15),
-        Paint()
-          ..color = color.withValues(alpha: active ? 0.3 : 0.2)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 0.5,
-      );
-    }
-
-    // Center hole
-    canvas.drawCircle(
-      Offset(cx, cy),
-      r * 0.14,
-      Paint()
-        ..color = color
-        ..style = active ? PaintingStyle.fill : PaintingStyle.stroke
-        ..strokeWidth = 1.4,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _VinylNavPainter old) => old.active != active;
 }
 
 // ─── Planet / Saturn (Browse) ───────────────────────────────────

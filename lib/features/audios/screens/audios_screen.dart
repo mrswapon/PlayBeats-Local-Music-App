@@ -16,11 +16,11 @@ import 'package:play_beats/features/player/bloc/player_event.dart';
 import 'package:play_beats/features/playlists/bloc/playlists_bloc.dart';
 import 'package:play_beats/features/playlists/bloc/playlists_event.dart';
 import 'package:play_beats/features/playlists/bloc/playlists_state.dart';
-import 'package:play_beats/features/songs/bloc/songs_bloc.dart';
-import 'package:play_beats/features/songs/bloc/songs_event.dart';
-import 'package:play_beats/features/songs/bloc/songs_state.dart';
+import 'package:play_beats/features/audios/bloc/audios_bloc.dart';
+import 'package:play_beats/features/audios/bloc/audios_event.dart';
+import 'package:play_beats/features/audios/bloc/audios_state.dart';
 import 'package:play_beats/features/player/bloc/player_state.dart';
-import 'package:play_beats/features/songs/widgets/explore_album_art.dart';
+import 'package:play_beats/features/audios/widgets/explore_album_art.dart';
 import 'dart:math';
 import 'package:shimmer/shimmer.dart';
 
@@ -29,14 +29,14 @@ const _margins  = [0.38, 0.22, 0.08, 0.02, 0.16, 0.28, 0.42];
 const _artSizes = [50.0, 54.0, 48.0, 56.0, 52.0, 46.0, 44.0];
 
 // ═════════════════════════════════════════════════════════════════
-class SongsScreen extends StatefulWidget {
-  const SongsScreen({super.key});
+class AudiosScreen extends StatefulWidget {
+  const AudiosScreen({super.key});
 
   @override
-  State<SongsScreen> createState() => _SongsScreenState();
+  State<AudiosScreen> createState() => _AudiosScreenState();
 }
 
-class _SongsScreenState extends State<SongsScreen>
+class _AudiosScreenState extends State<AudiosScreen>
     with TickerProviderStateMixin {
   final _searchController = TextEditingController();
   final _searchFocusNode  = FocusNode();
@@ -63,7 +63,7 @@ class _SongsScreenState extends State<SongsScreen>
       vsync: this,
       duration: const Duration(milliseconds: 600),
     )..repeat(reverse: true);
-    context.read<SongsBloc>().add(LoadAllSongs());
+    context.read<AudiosBloc>().add(LoadAllAudios());
   }
 
   @override
@@ -121,7 +121,7 @@ class _SongsScreenState extends State<SongsScreen>
       _searchFocusNode.unfocus();
       if (_searchController.text.isNotEmpty) {
         _searchController.clear();
-        context.read<SongsBloc>().add(ClearSearch());
+        context.read<AudiosBloc>().add(ClearSearch());
       }
     }
   }
@@ -227,18 +227,18 @@ class _SongsScreenState extends State<SongsScreen>
             _buildHeader(),
             if (_showSearch) _buildSearchBar(),
             Expanded(
-              child: BlocConsumer<SongsBloc, SongsState>(
+              child: BlocConsumer<AudiosBloc, AudiosState>(
                 listener: (context, state) {
-                  if (state is SongsLoaded) {
+                  if (state is AudiosLoaded) {
                     _entryController.reset();
                     _entryController.forward();
                   }
                 },
                 builder: (context, state) {
-                  if (state is SongsLoading)        return _buildShimmer();
-                  if (state is SongsPermissionDenied) return _buildPermissionDenied();
-                  if (state is SongsError)           return _buildError(state.message);
-                  if (state is SongsLoaded) {
+                  if (state is AudiosLoading)        return _buildShimmer();
+                  if (state is AudiosPermissionDenied) return _buildPermissionDenied();
+                  if (state is AudiosError)           return _buildError(state.message);
+                  if (state is AudiosLoaded) {
                     if (state.displayedSongs.isEmpty) {
                       return _buildEmpty(
                         state.searchQuery.isNotEmpty ? 'No songs found' : 'No songs on device',
@@ -289,7 +289,7 @@ class _SongsScreenState extends State<SongsScreen>
           children: [
             Expanded(
               child: Text(
-                'Songs',
+                'Audios',
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w800,
@@ -364,7 +364,7 @@ class _SongsScreenState extends State<SongsScreen>
                   color: _iconAlpha.withValues(alpha: 0.5), size: 18),
               onPressed: () {
                 _searchController.clear();
-                context.read<SongsBloc>().add(ClearSearch());
+                context.read<AudiosBloc>().add(ClearSearch());
                 setState(() {});
               },
             )
@@ -380,9 +380,9 @@ class _SongsScreenState extends State<SongsScreen>
           onChanged: (query) {
             setState(() {});
             if (query.isEmpty) {
-              context.read<SongsBloc>().add(ClearSearch());
+              context.read<AudiosBloc>().add(ClearSearch());
             } else {
-              context.read<SongsBloc>().add(SearchSongs(query));
+              context.read<AudiosBloc>().add(SearchAudios(query));
             }
           },
         ),
@@ -438,7 +438,7 @@ class _SongsScreenState extends State<SongsScreen>
         return RefreshIndicator(
           color: _textPrimary,
           backgroundColor: _activeCard,
-          onRefresh: () async => context.read<SongsBloc>().add(RefreshSongs()),
+          onRefresh: () async => context.read<AudiosBloc>().add(RefreshAudios()),
           child: ListView.builder(
             controller: _scrollController,
             // Extra vertical padding so first/last items can scroll to center
@@ -836,7 +836,7 @@ class _SongsScreenState extends State<SongsScreen>
           _buildActionButton(
             icon: Icons.lock_open,
             label: 'Grant Permission',
-            onTap: () => context.read<SongsBloc>().add(LoadAllSongs()),
+            onTap: () => context.read<AudiosBloc>().add(LoadAllAudios()),
           ),
         ],
       ),
@@ -863,7 +863,7 @@ class _SongsScreenState extends State<SongsScreen>
           _buildActionButton(
             icon: Icons.refresh,
             label: 'Retry',
-            onTap: () => context.read<SongsBloc>().add(LoadAllSongs()),
+            onTap: () => context.read<AudiosBloc>().add(LoadAllAudios()),
           ),
         ],
       ),
@@ -1395,9 +1395,9 @@ class _SongsScreenState extends State<SongsScreen>
         await metadataRepo.clearCustomTitle(song.id);
         
         if (!context.mounted) return;
-        
+
         // Refresh the songs list
-        context.read<SongsBloc>().add(RefreshSongs());
+        context.read<AudiosBloc>().add(RefreshAudios());
         
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

@@ -1,23 +1,23 @@
 import 'package:equatable/equatable.dart';
 import 'package:play_beats/data/models/song_model.dart';
 
-abstract class SongsState extends Equatable {
-  const SongsState();
+abstract class AudiosState extends Equatable {
+  const AudiosState();
 
   @override
   List<Object?> get props => [];
 }
 
-class SongsInitial extends SongsState {}
+class AudiosInitial extends AudiosState {}
 
-class SongsLoading extends SongsState {}
+class AudiosLoading extends AudiosState {}
 
-class SongsLoaded extends SongsState {
+class AudiosLoaded extends AudiosState {
   final List<Song> allSongs;
   final List<Song> displayedSongs;
   final String searchQuery;
 
-  const SongsLoaded({
+  const AudiosLoaded({
     required this.allSongs,
     required this.displayedSongs,
     this.searchQuery = '',
@@ -27,11 +27,11 @@ class SongsLoaded extends SongsState {
   List<Object?> get props => [allSongs, displayedSongs, searchQuery];
 }
 
-class SongsPermissionDenied extends SongsState {}
+class AudiosPermissionDenied extends AudiosState {}
 
-class SongsError extends SongsState {
+class AudiosError extends AudiosState {
   final String message;
-  const SongsError(this.message);
+  const AudiosError(this.message);
 
   @override
   List<Object?> get props => [message];

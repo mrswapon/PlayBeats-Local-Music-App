@@ -403,6 +403,32 @@ class _VideosScreenState extends State<VideosScreen>
     return Dismissible(
       key: ValueKey(video.id),
       direction: DismissDirection.horizontal,
+      // Left swipe (delete) - red background
+      secondaryBackground: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          color: Colors.red[600],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Delete',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(Icons.delete_outline_rounded, color: Colors.white, size: 22),
+            const SizedBox(width: 8),
+          ],
+        ),
+      ),
+      // Right swipe (rename) - green background
       background: Container(
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.only(left: 20),
