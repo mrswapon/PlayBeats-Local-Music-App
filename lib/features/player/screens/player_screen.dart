@@ -153,71 +153,76 @@ class _PlayerScreenState extends State<PlayerScreen>
               ),
             );
           }
-
           final isPlaying = state is PlayerPlaying;
           final isBuffering = state is PlayerBuffering;
           final audioService = context.read<AudioPlayerService>();
-
           return SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  const SizedBox(height: 4),
-                  _buildTopBar(state),
-                  const SizedBox(height: 12),
-                  _buildTurntable(ttSize, isPlaying),
-                  const SizedBox(height: 12),
-
-                  // ── Song info ──
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Text(
-                      song.title,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
-                        color: _p.textPrimary,
-                        letterSpacing: 0.3,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    song.artist,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: _p.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  //===========================================> Equalizer <===================================
-                  Container(
-                    height: 58,
-                      margin: const EdgeInsets.symmetric(horizontal: 32),
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
-                      decoration: _neuRaised(radius: 16, color: _p.surface),
-                      child: _buildEqualizer(isPlaying)),
-                  const SizedBox(height: 24),
-                  //===========================================> Progress Bar <==================================
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    padding: const EdgeInsets.only(top: 16, bottom: 16),
-                    decoration: _neuRaised(radius: 20, color: _p.surface),
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
                     child: Column(
                       children: [
-                        _buildProgressBar(audioService),
-                        // ────────────────────── Controls ──────────────────────
-                        _buildControls(isPlaying, isBuffering),
+                        const SizedBox(height: 4),
+                        _buildTopBar(state),
+                        const SizedBox(height: 12),
+                        _buildTurntable(ttSize, isPlaying),
+                        const SizedBox(height: 12),
+
+                        // ── Song info ──
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 32),
+                          child: Text(
+                            song.title,
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                              color: _p.textPrimary,
+                              letterSpacing: 0.3,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          song.artist,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                            color: _p.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // ── Equalizer ──
+                        Container(
+                          height: 58,
+                          margin: const EdgeInsets.symmetric(horizontal: 32),
+                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                          decoration: _neuRaised(radius: 16, color: _p.surface),
+                          child: _buildEqualizer(isPlaying),
+                        ),
+                        const SizedBox(height: 16),
                       ],
                     ),
                   ),
+                ),
 
-                ],
-              ),
+                // ── Progress Bar + Controls Bottom- ──
+                Container(
+                  margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  padding: const EdgeInsets.only(top: 16, bottom: 16),
+                  decoration: _neuRaised(radius: 20, color: _p.surface),
+                  child: Column(
+                    children: [
+                      _buildProgressBar(audioService),
+                      _buildControls(isPlaying, isBuffering),
+                    ],
+                  ),
+                ),
+              ],
             ),
           );
         },
