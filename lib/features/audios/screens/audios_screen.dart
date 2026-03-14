@@ -1,5 +1,5 @@
 import 'dart:io';
-
+import 'dart:math';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -21,7 +21,6 @@ import 'package:play_beats/features/audios/bloc/audios_event.dart';
 import 'package:play_beats/features/audios/bloc/audios_state.dart';
 import 'package:play_beats/features/player/bloc/player_state.dart';
 import 'package:play_beats/features/audios/widgets/explore_album_art.dart';
-import 'dart:math';
 import 'package:shimmer/shimmer.dart';
 
 // ─── Diagonal cascade margins (fraction of screen width) ─────

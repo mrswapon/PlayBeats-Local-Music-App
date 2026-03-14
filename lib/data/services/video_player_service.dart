@@ -19,7 +19,6 @@ class VideoPlayerService extends ChangeNotifier {
   Duration get duration => _duration;
 
   Future<void> initialize(String filePath) async {
-    // Clean up any existing controller first
     if (_controller != null) {
       _controller!.removeListener(_onVideoChanged);
       await _controller!.dispose();
@@ -51,9 +50,7 @@ class VideoPlayerService extends ChangeNotifier {
     if (_controller != null && !_isDisposed) {
       _isPlaying = _controller!.value.isPlaying;
       _position = _controller!.value.position;
-      if (!_isDisposed) {
-        notifyListeners();
-      }
+      notifyListeners();
     }
   }
 
@@ -82,11 +79,10 @@ class VideoPlayerService extends ChangeNotifier {
   }
 
   @override
-  // ignore: must_call_super
   void dispose() {
-    if (_isDisposed) return; // Prevent double disposal
+    if (_isDisposed) return;
     _isDisposed = true;
-    
+
     _controller?.removeListener(_onVideoChanged);
     _controller?.dispose();
     _chewieController?.dispose();
@@ -94,5 +90,6 @@ class VideoPlayerService extends ChangeNotifier {
     _chewieController = null;
     _isPlaying = false;
     _position = Duration.zero;
+    super.dispose();
   }
 }

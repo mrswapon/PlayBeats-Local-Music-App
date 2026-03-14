@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:play_beats/core/constants/app_constants.dart';
 import 'package:play_beats/data/repositories/local_music_repository.dart';
 import 'package:play_beats/data/services/hive_service.dart';
 import 'package:play_beats/features/onboarding/screens/onboarding_screen.dart';
@@ -84,7 +83,7 @@ class _SplashScreenState extends State<SplashScreen>
   ThemeMode _loadSavedTheme() {
     try {
       final idx = HiveService.settingsBox
-          .get(AppConstants.themeModeKey, defaultValue: 0);
+          .get('theme_mode', defaultValue: 0);
       return idx == 1 ? ThemeMode.dark : ThemeMode.light;
     } catch (e) {
       return ThemeMode.light;

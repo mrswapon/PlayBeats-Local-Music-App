@@ -39,11 +39,9 @@ class Playlist extends Equatable {
       name: name ?? this.name,
       songIds: songIds ?? this.songIds,
       createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? now(),
+      updatedAt: updatedAt ?? DateTime.now(),
     );
   }
-
-  DateTime now() => DateTime.now();
 
   Map<String, dynamic> toJson() {
     return {
