@@ -38,6 +38,12 @@ class SongTile extends StatelessWidget {
           context.read<PlayerBloc>().add(
                 PlaySong(song: song, playlist: playlist),
               );
+          // Navigate to player screen after a short delay
+          Future.delayed(const Duration(milliseconds: 20), () {
+            if (context.mounted) {
+              Navigator.of(context).pushNamed('/player');
+            }
+          });
         },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

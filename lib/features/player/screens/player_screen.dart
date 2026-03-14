@@ -197,16 +197,31 @@ class _PlayerScreenState extends State<PlayerScreen>
                   const SizedBox(height: 24),
 
                   // ── Equalizer ──
-                  _buildEqualizer(isPlaying),
-                  const SizedBox(height: 8),
+                  Container(
+                    height: 58,
+                      margin: const EdgeInsets.symmetric(horizontal: 32),
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                      decoration: _neuRaised(radius: 16, color: _p.surface),
+                      child: _buildEqualizer(isPlaying)),
+                  const SizedBox(height: 28),
+                 // Spacer(),
 
                   // ── Progress bar ──
-                  _buildProgressBar(audioService),
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.only(top: 8, bottom: 16),
+                    decoration: _neuRaised(radius: 20, color: _p.surface),
+                    child: Column(
+                      children: [
+                        _buildProgressBar(audioService),
+                        // ── Controls ──
+                        _buildControls(isPlaying, isBuffering),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 12),
 
-                  // ── Controls ──
-                  _buildControls(isPlaying, isBuffering),
-                  const SizedBox(height: 16),
+
                 ],
               ),
             ),
@@ -852,7 +867,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   void _showCustomTimePicker() {
     final hoursController = TextEditingController(text: '0');
     final minutesController = TextEditingController(text: '30');
-    
+
     showDialog(
       context: context,
       builder: (dialogCtx) {
@@ -926,7 +941,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                 final hours = int.tryParse(hoursController.text) ?? 0;
                 final minutes = int.tryParse(minutesController.text) ?? 30;
                 final duration = Duration(hours: hours, minutes: minutes);
-                
+
                 if (duration.inMinutes > 0) {
                   _startSleepTimer(duration);
                   Navigator.pop(dialogCtx);
@@ -945,7 +960,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     _sleepTimerDuration = duration;
     _sleepTimerRemaining = duration;
     _isSleepTimerActive = true;
-    
+
     _sleepTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_sleepTimerRemaining.inSeconds > 0) {
         setState(() {
@@ -955,7 +970,7 @@ class _PlayerScreenState extends State<PlayerScreen>
         // Time's up - stop playback
         _cancelSleepTimer();
         context.read<PlayerBloc>().add(StopSong());
-        
+
         // Show notification
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -980,7 +995,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     final hours = duration.inHours;
     final minutes = duration.inMinutes.remainder(60);
     final seconds = duration.inSeconds.remainder(60);
-    
+
     if (hours > 0) {
       return '${hours}h ${minutes}m ${seconds}s';
     } else if (minutes > 0) {
