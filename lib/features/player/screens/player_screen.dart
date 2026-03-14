@@ -193,34 +193,28 @@ class _PlayerScreenState extends State<PlayerScreen>
                       color: _p.textSecondary,
                     ),
                   ),
-
-                  const SizedBox(height: 24),
-
-                  // ── Equalizer ──
+                  const SizedBox(height: 16),
+                  //===========================================> Equalizer <===================================
                   Container(
                     height: 58,
                       margin: const EdgeInsets.symmetric(horizontal: 32),
                       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
                       decoration: _neuRaised(radius: 16, color: _p.surface),
                       child: _buildEqualizer(isPlaying)),
-                  const SizedBox(height: 28),
-                 // Spacer(),
-
-                  // ── Progress bar ──
+                  const SizedBox(height: 24),
+                  //===========================================> Progress Bar <==================================
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16),
-                    padding: const EdgeInsets.only(top: 8, bottom: 16),
+                    padding: const EdgeInsets.only(top: 16, bottom: 16),
                     decoration: _neuRaised(radius: 20, color: _p.surface),
                     child: Column(
                       children: [
                         _buildProgressBar(audioService),
-                        // ── Controls ──
+                        // ────────────────────── Controls ──────────────────────
                         _buildControls(isPlaying, isBuffering),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-
 
                 ],
               ),
@@ -342,7 +336,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     return Center(
       child: Container(
         width: size,
-        height: size * 0.88,
+        height: size * 0.82,
         decoration: _neuRaised(radius: 18, color: _p.surface),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(18),

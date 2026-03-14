@@ -9,6 +9,8 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
   final _currentSongController = StreamController<Song?>.broadcast();
   Song? _currentSong;
   StreamSubscription<PlaybackEvent>? _playbackSubscription;
+  List<Song> _playlist = [];
+  int _currentIndex = 0;
 
   AudioPlayerService() {
     _playbackSubscription = _player.playbackEventStream.listen(_broadcastState);
@@ -18,24 +20,38 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
   Stream<Song?> get currentSongStream => _currentSongController.stream;
   Song? get currentSong => _currentSong;
 
-  Future<void> playSong(Song song) async {
+  void setPlaylist(List<Song> playlist, int index) {
+    _playlist = playlist;
+    _currentIndex = index;
+  }
+
+  Future<void> playSong(Song song, {List<Song>? playlist, int? index}) async {
     _currentSong = song;
     _currentSongController.add(song);
 
+    if (playlist != null && index != null) {
+      _playlist = playlist;
+      _currentIndex = index;
+    }
+
+    final artUri = song.albumId != 0 
+        ? 'content://media/external/audio/albumart/${song.albumId}'
+        : null;
+
     mediaItem.add(MediaItem(
       id: song.id,
-      title: song.title,
+      title: song.displayTitle,
       artist: song.artist,
       album: song.album,
       duration: Duration(milliseconds: song.duration),
+      artUri: artUri != null ? Uri.parse(artUri) : null,
     ));
 
     try {
       await _player.setFilePath(song.filePath);
       await _player.play();
     } catch (e) {
-      // ignore: avoid_print
-      print('PlayBeats: Error playing song: $e');
+      // Error playing song
     }
   }
 
@@ -60,32 +76,49 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
     await _player.seek(position);
   }
 
+  @override
+  Future<void> skipToNext() async {
+    if (_playlist.isEmpty) return;
+    final nextIndex = (_currentIndex + 1) % _playlist.length;
+    await playSong(_playlist[nextIndex], playlist: _playlist, index: nextIndex);
+  }
+
+  @override
+  Future<void> skipToPrevious() async {
+    if (_playlist.isEmpty) return;
+    final prevIndex = (_currentIndex - 1 + _playlist.length) % _playlist.length;
+    await playSong(_playlist[prevIndex], playlist: _playlist, index: prevIndex);
+  }
+
   void _broadcastState(PlaybackEvent event) {
+    final isPlaying = _player.playing;
+    final processingState = _player.processingState;
+
     playbackState.add(playbackState.value.copyWith(
       controls: [
         MediaControl.skipToPrevious,
-        _player.playing ? MediaControl.pause : MediaControl.play,
-        MediaControl.stop,
+        if (isPlaying) MediaControl.pause else MediaControl.play,
         MediaControl.skipToNext,
       ],
       systemActions: const {
         MediaAction.seek,
         MediaAction.seekForward,
         MediaAction.seekBackward,
+        MediaAction.stop,
       },
-      androidCompactActionIndices: const [0, 1, 3],
+      androidCompactActionIndices: const [0, 1, 2],
       processingState: const {
         ProcessingState.idle: AudioProcessingState.idle,
         ProcessingState.loading: AudioProcessingState.loading,
         ProcessingState.buffering: AudioProcessingState.buffering,
         ProcessingState.ready: AudioProcessingState.ready,
         ProcessingState.completed: AudioProcessingState.completed,
-      }[_player.processingState]!,
-      playing: _player.playing,
+      }[processingState]!,
+      playing: isPlaying,
       updatePosition: _player.position,
       bufferedPosition: _player.bufferedPosition,
       speed: _player.speed,
-      queueIndex: event.currentIndex,
+      queueIndex: _currentIndex,
     ));
   }
 
@@ -102,8 +135,15 @@ Future<AudioPlayerService> initAudioService() async {
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.mr_swapon.play_beats.audio',
       androidNotificationChannelName: 'PlayBeats Audio',
-      androidNotificationOngoing: true,
+      androidNotificationOngoing: false,
       androidStopForegroundOnPause: true,
+      androidNotificationIcon: 'mipmap/ic_launcher',
+      androidShowNotificationBadge: true,
+      preloadArtwork: false,
+      artDownscaleWidth: 300,
+      artDownscaleHeight: 300,
+      fastForwardInterval: Duration(seconds: 10),
+      androidNotificationChannelDescription: 'Audio playback notification for PlayBeats',
     ),
   );
 }
