@@ -18,7 +18,7 @@ class VideoPlayerService extends ChangeNotifier {
   Duration get position => _position;
   Duration get duration => _duration;
 
-  Future<void> initialize(String filePath) async {
+  Future<void> initialize(String filePath, {bool isFullscreen = false}) async {
     if (_controller != null) {
       _controller!.removeListener(_onVideoChanged);
       await _controller!.dispose();
@@ -40,9 +40,35 @@ class VideoPlayerService extends ChangeNotifier {
       allowFullScreen: true,
       allowMuting: true,
       allowPlaybackSpeedChanging: true,
+      // Start in portrait mode
+      aspectRatio: isFullscreen ? 16 / 9 : 9 / 16,
     );
 
     _controller!.addListener(_onVideoChanged);
+    notifyListeners();
+  }
+
+  /// Update the aspect ratio for fullscreen toggle (recreates controller)
+  Future<void> updateAspectRatio(bool isFullscreen) async {
+    if (_controller == null) return;
+    
+    final currentPosition = _controller!.value.position;
+    
+    _chewieController?.dispose();
+    
+    _chewieController = ChewieController(
+      videoPlayerController: _controller!,
+      autoPlay: true,
+      looping: false,
+      showControlsOnInitialize: true,
+      allowFullScreen: true,
+      allowMuting: true,
+      allowPlaybackSpeedChanging: true,
+      aspectRatio: isFullscreen ? 16 / 9 : 9 / 16,
+    );
+    
+    // Seek to previous position
+    await _controller!.seekTo(currentPosition);
     notifyListeners();
   }
 

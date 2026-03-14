@@ -711,7 +711,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         PlaySong(song: song, playlist: playlistSongs),
                       );
                       Future.delayed(const Duration(milliseconds: 300), () {
-                        Navigator.of(context).pushNamed('/player');
+                        if (context.mounted) {
+                          Navigator.of(context).pushNamed('/player');
+                        }
                       });
                     },
                     child: Container(

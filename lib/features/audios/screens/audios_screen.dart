@@ -1371,19 +1371,19 @@ class _AudiosScreenState extends State<AudiosScreen>
       // Check if file exists
       final exists = await file.exists();
       debugPrint('Song file exists: $exists, path: ${song.filePath}');
-      
+
       if (exists) {
         // Try to delete the file
         await file.delete();
         debugPrint('Song file deleted successfully');
-        
+
         // Remove from favorites if present
-        if (favoritesRepo.isFavorite(song.id)) {
+        if (await favoritesRepo.isFavorite(song.id)) {
           await favoritesRepo.removeFavorite(song.id);
         }
-        
+
         // Remove from all playlists
-        final allPlaylists = playlistsRepo.getAllPlaylists();
+        final allPlaylists = await playlistsRepo.getAllPlaylists();
         for (final playlist in allPlaylists) {
           if (playlist.songIds.contains(song.id)) {
             await playlistsRepo.removeSongFromPlaylist(playlist.id, song.id);

@@ -9,15 +9,13 @@ import 'package:play_beats/data/repositories/playlists_repository.dart';
 import 'package:play_beats/data/repositories/song_metadata_repository.dart';
 import 'package:play_beats/data/repositories/video_repository.dart';
 import 'package:play_beats/data/services/audio_player_service.dart';
+import 'package:play_beats/features/audios/bloc/audios_bloc.dart';
 import 'package:play_beats/features/browse/bloc/browse_bloc.dart';
 import 'package:play_beats/features/favorites/bloc/favorites_bloc.dart';
-import 'package:play_beats/features/favorites/bloc/favorites_event.dart';
 import 'package:play_beats/features/player/bloc/player_bloc.dart';
 import 'package:play_beats/features/player/screens/player_screen.dart';
 import 'package:play_beats/features/playlists/bloc/playlists_bloc.dart';
-import 'package:play_beats/features/playlists/bloc/playlists_event.dart';
 import 'package:play_beats/features/splash/screens/splash_screen.dart';
-import 'package:play_beats/features/audios/bloc/audios_bloc.dart';
 import 'package:play_beats/features/videos/bloc/videos_bloc.dart';
 
 class PlayBeatsApp extends StatelessWidget {
@@ -40,33 +38,42 @@ class PlayBeatsApp extends StatelessWidget {
       ],
       child: MultiBlocProvider(
         providers: [
-          BlocProvider(create: (_) => ThemeCubit()),
           BlocProvider(
+            create: (_) => ThemeCubit()..loadSavedTheme(),
+          ),
+          // Lazy load BLoCs - only initialize when accessed
+          BlocProvider(
+            lazy: true,
             create: (context) => AudiosBloc(
               repository: context.read<LocalMusicRepository>(),
             ),
           ),
           BlocProvider(
+            lazy: true,
             create: (context) => PlayerBloc(
               audioService: context.read<AudioPlayerService>(),
             ),
           ),
           BlocProvider(
+            lazy: true,
             create: (context) => FavoritesBloc(
               repository: context.read<FavoritesRepository>(),
-            )..add(LoadFavorites()),
+            ),
           ),
           BlocProvider(
+            lazy: true,
             create: (context) => BrowseBloc(
               repository: context.read<LocalMusicRepository>(),
             ),
           ),
           BlocProvider(
+            lazy: true,
             create: (context) => PlaylistsBloc(
               repository: context.read<PlaylistsRepository>(),
-            )..add(LoadPlaylists()),
+            ),
           ),
           BlocProvider(
+            lazy: true,
             create: (context) => VideosBloc(
               repository: context.read<VideoRepository>(),
             ),

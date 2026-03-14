@@ -8,6 +8,7 @@ import 'package:play_beats/core/theme/app_theme.dart';
 import 'package:play_beats/core/theme/neumorphic.dart';
 import 'package:play_beats/data/models/video_model.dart';
 import 'package:play_beats/data/repositories/song_metadata_repository.dart';
+import 'package:play_beats/data/services/video_service.dart';
 import 'package:play_beats/features/videos/bloc/videos_bloc.dart';
 import 'package:play_beats/features/videos/bloc/videos_event.dart';
 import 'package:play_beats/features/videos/bloc/videos_state.dart';
@@ -26,6 +27,13 @@ class _VideosScreenState extends State<VideosScreen>
   late final AnimationController _entryController;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  final VideoService _videoService = VideoService();
+  final ScrollController _scrollController = ScrollController();
+  
+  // Track which thumbnails have been loaded
+  final Set<String> _loadedThumbnailPaths = {};
+  final Set<String> _loadingThumbnailPaths = {};
+  
   bool _showSearch = false;
   List<Video> _allVideos = [];
   List<Video> _filteredVideos = [];
@@ -59,6 +67,9 @@ class _VideosScreenState extends State<VideosScreen>
     _entryController.dispose();
     _searchController.dispose();
     _searchFocusNode.dispose();
+    _scrollController.dispose();
+    _loadedThumbnailPaths.clear();
+    _loadingThumbnailPaths.clear();
     super.dispose();
   }
 
@@ -366,39 +377,107 @@ class _VideosScreenState extends State<VideosScreen>
       onRefresh: () async {
         context.read<VideosBloc>().add(RefreshVideos());
       },
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        itemCount: sortedVideos.length,
-        itemBuilder: (context, index) {
-          final delay = index * 0.06;
-          final start = (0.1 + delay).clamp(0.0, 0.95);
-          final end = (start + 0.35).clamp(0.0, 1.0);
-
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: FadeTransition(
-              opacity: CurvedAnimation(
-                parent: _entryController,
-                curve: Interval(start, end, curve: Curves.easeOut),
-              ),
-              child: SlideTransition(
-                position: Tween<Offset>(
-                  begin: const Offset(0.45, 0.35),
-                  end: Offset.zero,
-                ).animate(CurvedAnimation(
-                  parent: _entryController,
-                  curve: Interval(start, end, curve: Curves.easeOutCubic),
-                )),
-                child: _buildVideoTile(sortedVideos[index]),
-              ),
-            ),
-          );
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          // Lazy load thumbnails when scrolling
+          if (notification is ScrollUpdateNotification) {
+            _loadVisibleThumbnails();
+          }
+          return false;
         },
+        child: ListView.builder(
+          controller: _scrollController,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          itemCount: sortedVideos.length,
+          itemBuilder: (context, index) {
+            final delay = index * 0.06;
+            final start = (0.1 + delay).clamp(0.0, 0.95);
+            final end = (start + 0.35).clamp(0.0, 1.0);
+
+            // Load thumbnail for visible items
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (index < sortedVideos.length) {
+                _loadThumbnailForVideo(sortedVideos[index], index);
+              }
+            });
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: _entryController,
+                  curve: Interval(start, end, curve: Curves.easeOut),
+                ),
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0.45, 0.35),
+                    end: Offset.zero,
+                  ).animate(CurvedAnimation(
+                    parent: _entryController,
+                    curve: Interval(start, end, curve: Curves.easeOutCubic),
+                  )),
+                  child: _buildVideoTile(sortedVideos[index], index),
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildVideoTile(Video video) {
+  /// Load thumbnails for visible videos only
+  void _loadVisibleThumbnails() {
+    if (!_scrollController.hasClients) return;
+    
+    final firstVisible = _scrollController.offset ~/ 90; // Approx tile height
+    final visibleCount = (MediaQuery.of(context).size.height / 90).ceil() + 2;
+    
+    for (int i = firstVisible; i < firstVisible + visibleCount && i < _filteredVideos.length; i++) {
+      _loadThumbnailForVideo(_filteredVideos[i], i);
+    }
+  }
+
+  /// Load thumbnail for a specific video
+  Future<void> _loadThumbnailForVideo(Video video, int index) async {
+    if (video.thumbnailPath != null || 
+        _loadedThumbnailPaths.contains(video.filePath) ||
+        _loadingThumbnailPaths.contains(video.filePath)) {
+      return;
+    }
+
+    _loadingThumbnailPaths.add(video.filePath);
+    
+    try {
+      final thumbnailPath = await _videoService.generateThumbnail(video.filePath);
+      if (thumbnailPath != null && mounted) {
+        setState(() {
+          _loadedThumbnailPaths.add(video.filePath);
+          // Update the video with thumbnail path
+          final videoIndex = _allVideos.indexWhere((v) => v.id == video.id);
+          if (videoIndex != -1) {
+            _allVideos[videoIndex] = Video(
+              id: video.id,
+              title: video.title,
+              artist: video.artist,
+              filePath: video.filePath,
+              duration: video.duration,
+              album: video.album,
+              albumId: video.albumId,
+              thumbnailPath: thumbnailPath,
+            );
+            _filterVideos(_searchController.text);
+          }
+        });
+      }
+    } catch (e) {
+      // Ignore thumbnail loading errors
+    } finally {
+      _loadingThumbnailPaths.remove(video.filePath);
+    }
+  }
+
+  Widget _buildVideoTile(Video video, int index) {
     final c = context.colors;
     return Dismissible(
       key: ValueKey(video.id),

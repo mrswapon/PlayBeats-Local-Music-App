@@ -18,28 +18,17 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   VideoPlayerService? _videoPlayerService;
   bool _isInitialized = false;
   bool _isDisposed = false;
+  bool _isFullscreen = false;
 
   @override
   void initState() {
     super.initState();
-    _setLandscapeOrientation();
+    // Start in portrait mode
+    _setPortraitOrientation();
     _initializePlayer();
   }
 
-  Future<void> _setLandscapeOrientation() async {
-    // Set landscape orientation
-    await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
-    ]);
-    // Hide system UI for immersive experience
-    await SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.immersiveSticky,
-    );
-  }
-
-  Future<void> _resetOrientation() async {
-    // Reset to portrait when leaving
+  Future<void> _setPortraitOrientation() async {
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
     ]);
@@ -48,9 +37,42 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     );
   }
 
+  Future<void> _setLandscapeOrientation() async {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    await SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.immersiveSticky,
+    );
+  }
+
+  Future<void> _resetOrientation() async {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
+    await SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.edgeToEdge,
+    );
+  }
+
+  Future<void> _toggleFullscreen() async {
+    setState(() {
+      _isFullscreen = !_isFullscreen;
+    });
+    // First change orientation, then update aspect ratio
+    if (_isFullscreen) {
+      await _setLandscapeOrientation();
+      await _videoPlayerService?.updateAspectRatio(_isFullscreen);
+    } else {
+      await _videoPlayerService?.updateAspectRatio(_isFullscreen);
+      await _setPortraitOrientation();
+    }
+  }
+
   Future<void> _initializePlayer() async {
     if (_isDisposed) return;
-    
+
     try {
       _videoPlayerService = VideoPlayerService();
       await _videoPlayerService!.initialize(widget.video.filePath);
@@ -115,83 +137,152 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
                   ),
           ),
 
-          // Top bar
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.7),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          _resetOrientation();
-                          Navigator.pop(context);
-                        },
-                        child: Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.arrow_back_ios_new_rounded,
-                            color: Colors.white,
-                            size: 18,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              widget.video.title,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              widget.video.artist,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.7),
-                                fontSize: 12,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
+          // Top bar - always visible in portrait mode
+          if (!_isFullscreen)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.7),
+                      Colors.transparent,
                     ],
+                  ),
+                ),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            _resetOrientation();
+                            Navigator.pop(context);
+                          },
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                widget.video.title,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                widget.video.artist,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.7),
+                                  fontSize: 12,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
+
+          // Rotate to landscape button (bottom-right corner in portrait mode)
+          if (!_isFullscreen)
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: GestureDetector(
+                onTap: _toggleFullscreen,
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.screen_rotation,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+
+          // Exit fullscreen button (bottom-right corner in landscape mode)
+          if (_isFullscreen)
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: GestureDetector(
+                onTap: _toggleFullscreen,
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.6),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.3),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.screen_rotation,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

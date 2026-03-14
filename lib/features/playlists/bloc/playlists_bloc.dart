@@ -22,7 +22,7 @@ class PlaylistsBloc extends Bloc<PlaylistsEvent, PlaylistsState> {
   ) async {
     emit(PlaylistsLoading());
     try {
-      final playlists = repository.getAllPlaylists();
+      final playlists = await repository.getAllPlaylists();
       emit(PlaylistsLoaded(playlists));
     } catch (e) {
       emit(PlaylistsError(e.toString()));
@@ -35,7 +35,7 @@ class PlaylistsBloc extends Bloc<PlaylistsEvent, PlaylistsState> {
   ) async {
     try {
       await repository.createPlaylist(event.name);
-      final playlists = repository.getAllPlaylists();
+      final playlists = await repository.getAllPlaylists();
       emit(PlaylistsLoaded(playlists));
     } catch (e) {
       emit(PlaylistsError(e.toString()));
@@ -48,7 +48,7 @@ class PlaylistsBloc extends Bloc<PlaylistsEvent, PlaylistsState> {
   ) async {
     try {
       await repository.deletePlaylist(event.playlistId);
-      final playlists = repository.getAllPlaylists();
+      final playlists = await repository.getAllPlaylists();
       emit(PlaylistsLoaded(playlists));
     } catch (e) {
       emit(PlaylistsError(e.toString()));
@@ -60,12 +60,12 @@ class PlaylistsBloc extends Bloc<PlaylistsEvent, PlaylistsState> {
     Emitter<PlaylistsState> emit,
   ) async {
     try {
-      final playlist = repository.getPlaylist(event.playlistId);
+      final playlist = await repository.getPlaylist(event.playlistId);
       if (playlist == null) return;
 
       final updated = playlist.copyWith(name: event.newName);
       await repository.updatePlaylist(updated);
-      final playlists = repository.getAllPlaylists();
+      final playlists = await repository.getAllPlaylists();
       emit(PlaylistsLoaded(playlists));
     } catch (e) {
       emit(PlaylistsError(e.toString()));
@@ -78,7 +78,7 @@ class PlaylistsBloc extends Bloc<PlaylistsEvent, PlaylistsState> {
   ) async {
     try {
       await repository.addSongToPlaylist(event.playlistId, event.songId);
-      final playlists = repository.getAllPlaylists();
+      final playlists = await repository.getAllPlaylists();
       emit(PlaylistsLoaded(playlists));
     } catch (e) {
       emit(PlaylistsError(e.toString()));
@@ -91,7 +91,7 @@ class PlaylistsBloc extends Bloc<PlaylistsEvent, PlaylistsState> {
   ) async {
     try {
       await repository.removeSongFromPlaylist(event.playlistId, event.songId);
-      final playlists = repository.getAllPlaylists();
+      final playlists = await repository.getAllPlaylists();
       emit(PlaylistsLoaded(playlists));
     } catch (e) {
       emit(PlaylistsError(e.toString()));
@@ -108,7 +108,7 @@ class PlaylistsBloc extends Bloc<PlaylistsEvent, PlaylistsState> {
         event.oldIndex,
         event.newIndex,
       );
-      final playlists = repository.getAllPlaylists();
+      final playlists = await repository.getAllPlaylists();
       emit(PlaylistsLoaded(playlists));
     } catch (e) {
       emit(PlaylistsError(e.toString()));

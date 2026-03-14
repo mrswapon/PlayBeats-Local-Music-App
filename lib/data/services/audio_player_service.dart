@@ -11,6 +11,9 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
   StreamSubscription<PlaybackEvent>? _playbackSubscription;
   List<Song> _playlist = [];
   int _currentIndex = 0;
+  
+  // Preload next song for faster playback
+  Song? _nextSong;
 
   AudioPlayerService() {
     _playbackSubscription = _player.playbackEventStream.listen(_broadcastState);
@@ -32,9 +35,11 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
     if (playlist != null && index != null) {
       _playlist = playlist;
       _currentIndex = index;
+      // Preload next song
+      _preloadNextSong(index);
     }
 
-    final artUri = song.albumId != 0 
+    final artUri = song.albumId != 0
         ? 'content://media/external/audio/albumart/${song.albumId}'
         : null;
 
@@ -48,11 +53,20 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
     ));
 
     try {
+      // Use setFilePath with faster loading
       await _player.setFilePath(song.filePath);
       await _player.play();
     } catch (e) {
       // Error playing song
     }
+  }
+
+  /// Preload the next song for faster playback
+  void _preloadNextSong(int currentIndex) {
+    if (_playlist.isEmpty || _playlist.length <= 1) return;
+    
+    final nextIndex = (currentIndex + 1) % _playlist.length;
+    _nextSong = _playlist[nextIndex];
   }
 
   @override
@@ -89,6 +103,9 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
     final prevIndex = (_currentIndex - 1 + _playlist.length) % _playlist.length;
     await playSong(_playlist[prevIndex], playlist: _playlist, index: prevIndex);
   }
+
+  /// Get the next song for preloading
+  Song? get nextSong => _nextSong;
 
   void _broadcastState(PlaybackEvent event) {
     final isPlaying = _player.playing;

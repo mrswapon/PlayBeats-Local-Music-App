@@ -3,39 +3,67 @@ import 'package:play_beats/data/models/song_model.dart';
 import 'package:play_beats/data/models/playlist_model.dart';
 
 class HiveService {
+  static bool _initialized = false;
+  static Box<Song>? _favoritesBox;
+  static Box<Playlist>? _playlistsBox;
+  static Box? _settingsBox;
+
   static Future<void> init() async {
+    if (_initialized) return;
+    
     await Hive.initFlutter();
     Hive.registerAdapter(SongAdapter());
     Hive.registerAdapter(PlaylistAdapter());
-    await Hive.openBox<Song>('favorites');
-    await Hive.openBox<Playlist>('playlists');
-    await Hive.openBox('settings');
+    
+    // Open boxes lazily - only when needed
+    _initialized = true;
+  }
 
-    // Migration: clear old favorites that have no filePath (stale YouTube data)
-    final favBox = Hive.box<Song>('favorites');
-    final staleKeys = <dynamic>[];
-    for (final key in favBox.keys) {
-      final song = favBox.get(key);
-      if (song != null && song.filePath.isEmpty) {
-        staleKeys.add(key);
+  static Future<void> _ensureInitialized() async {
+    if (!_initialized) await init();
+    
+    // Open boxes on first access
+    _favoritesBox ??= await Hive.openBox<Song>('favorites');
+    _playlistsBox ??= await Hive.openBox<Playlist>('playlists');
+    _settingsBox ??= await Hive.openBox('settings');
+    
+    // One-time migration: clear old favorites that have no filePath
+    if (_favoritesBox != null) {
+      final staleKeys = <dynamic>[];
+      for (final key in _favoritesBox!.keys) {
+        final song = _favoritesBox!.get(key);
+        if (song != null && song.filePath.isEmpty) {
+          staleKeys.add(key);
+        }
       }
-    }
-    if (staleKeys.isNotEmpty) {
-      await favBox.deleteAll(staleKeys);
+      if (staleKeys.isNotEmpty) {
+        await _favoritesBox!.deleteAll(staleKeys);
+      }
     }
   }
 
-  static Box<Song> get favoritesBox =>
-      Hive.box<Song>('favorites');
+  static Future<Box<Song>> get favoritesBox async {
+    await _ensureInitialized();
+    return _favoritesBox!;
+  }
 
-  static Box<Playlist> get playlistsBox =>
-      Hive.box<Playlist>('playlists');
+  static Future<Box<Playlist>> get playlistsBox async {
+    await _ensureInitialized();
+    return _playlistsBox!;
+  }
 
-  static Box get settingsBox => Hive.box('settings');
+  static Future<Box> get settingsBox async {
+    await _ensureInitialized();
+    return _settingsBox!;
+  }
 
-  static bool get isOnboardingComplete =>
-      settingsBox.get('onboarding_complete', defaultValue: false);
+  static Future<bool> get isOnboardingComplete async {
+    final box = await settingsBox;
+    return box.get('onboarding_complete', defaultValue: false);
+  }
 
-  static Future<void> setOnboardingComplete() =>
-      settingsBox.put('onboarding_complete', true);
+  static Future<void> setOnboardingComplete() async {
+    final box = await settingsBox;
+    await box.put('onboarding_complete', true);
+  }
 }

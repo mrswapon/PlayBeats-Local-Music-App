@@ -3,18 +3,18 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:play_beats/data/services/hive_service.dart';
 
 class ThemeCubit extends Cubit<ThemeMode> {
-  ThemeCubit() : super(_loadSaved());
+  ThemeCubit() : super(ThemeMode.system);
 
-  static ThemeMode _loadSaved() {
-    final idx = HiveService.settingsBox
-        .get('theme_mode', defaultValue: 0);
-    return idx == 1 ? ThemeMode.dark : ThemeMode.light;
+  Future<void> loadSavedTheme() async {
+    final box = await HiveService.settingsBox;
+    final idx = box.get('theme_mode', defaultValue: 0);
+    emit(idx == 1 ? ThemeMode.dark : ThemeMode.light);
   }
 
-  void toggle() {
+  Future<void> toggle() async {
     final next = state == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
-    HiveService.settingsBox
-        .put('theme_mode', next == ThemeMode.dark ? 1 : 0);
+    final box = await HiveService.settingsBox;
+    await box.put('theme_mode', next == ThemeMode.dark ? 1 : 0);
     emit(next);
   }
 }

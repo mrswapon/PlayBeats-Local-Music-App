@@ -18,7 +18,7 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
     LoadFavorites event,
     Emitter<FavoritesState> emit,
   ) async {
-    final favorites = _repository.getFavorites();
+    final favorites = await _repository.getFavorites();
     emit(FavoritesLoaded(favorites));
   }
 
@@ -27,7 +27,7 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
     Emitter<FavoritesState> emit,
   ) async {
     await _repository.addFavorite(event.song);
-    final favorites = _repository.getFavorites();
+    final favorites = await _repository.getFavorites();
     emit(FavoritesLoaded(favorites));
   }
 
@@ -36,7 +36,7 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
     Emitter<FavoritesState> emit,
   ) async {
     await _repository.removeFavorite(event.songId);
-    final favorites = _repository.getFavorites();
+    final favorites = await _repository.getFavorites();
     emit(FavoritesLoaded(favorites));
   }
 }

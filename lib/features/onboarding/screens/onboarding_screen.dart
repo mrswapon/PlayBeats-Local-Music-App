@@ -33,12 +33,12 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     with TickerProviderStateMixin {
   late final AnimationController _fadeController;
   late final AnimationController _floatController;
-  late final bool _isDark;
+  bool _isDark = false;
 
   @override
   void initState() {
     super.initState();
-    _isDark = _loadSavedTheme() == ThemeMode.dark;
+    _loadTheme();
     _fadeController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -50,13 +50,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     )..repeat(reverse: true);
   }
 
-  ThemeMode _loadSavedTheme() {
-    try {
-      final idx = HiveService.settingsBox
-          .get('theme_mode', defaultValue: 0);
-      return idx == 1 ? ThemeMode.dark : ThemeMode.light;
-    } catch (e) {
-      return ThemeMode.light;
+  Future<void> _loadTheme() async {
+    final box = await HiveService.settingsBox;
+    final idx = box.get('theme_mode', defaultValue: 0);
+    if (mounted) {
+      setState(() {
+        _isDark = idx == 1;
+      });
     }
   }
 
@@ -67,11 +67,13 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     super.dispose();
   }
 
-  void _onGetStarted() {
-    HiveService.setOnboardingComplete();
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const AppShell()),
-    );
+  Future<void> _onGetStarted() async {
+    await HiveService.setOnboardingComplete();
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const AppShell()),
+      );
+    }
   }
 
   @override

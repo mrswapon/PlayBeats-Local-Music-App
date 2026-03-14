@@ -1,6 +1,5 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:play_beats/data/repositories/local_music_repository.dart';
 import 'package:play_beats/data/services/hive_service.dart';
 import 'package:play_beats/features/onboarding/screens/onboarding_screen.dart';
 import 'package:play_beats/features/shell/screens/app_shell.dart';
@@ -19,33 +18,36 @@ class _SplashScreenState extends State<SplashScreen>
   late final AnimationController _exitController;
   late final AnimationController _glowController;
 
+  ThemeMode _themeMode = ThemeMode.light;
+
   @override
   void initState() {
     super.initState();
-    _requestPermissions();
+    // Permissions requested on-demand when accessing content
+    _loadTheme();
 
     // Disc scale + spin
     _scaleController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 500),
     );
 
     // Text fade + slide
     _textController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 500),
     );
 
     // Glow pulse
     _glowController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 800),
     );
 
     // Exit fade-out
     _exitController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 200),
     );
 
     _exitController.addStatusListener((status) {
@@ -57,42 +59,42 @@ class _SplashScreenState extends State<SplashScreen>
     // Start the animation sequence
     _scaleController.forward();
 
-    Future.delayed(const Duration(milliseconds: 400), () {
+    Future.delayed(const Duration(milliseconds: 200), () {
       if (mounted) _textController.forward();
     });
 
-    Future.delayed(const Duration(milliseconds: 600), () {
+    Future.delayed(const Duration(milliseconds: 400), () {
       if (mounted) _glowController.forward();
     });
 
-    Future.delayed(const Duration(milliseconds: 2200), () {
+    Future.delayed(const Duration(milliseconds: 900), () {
       if (mounted) _exitController.forward();
     });
   }
 
-  Future<void> _requestPermissions() async {
-    // Request permissions early to avoid issues with activity recreation
-    try {
-      final repository = LocalMusicRepository();
-      await repository.requestPermission();
-    } catch (e) {
-      // Ignore errors - will be requested again when needed
+  Future<void> _loadTheme() async {
+    final theme = await _loadSavedTheme();
+    if (mounted) {
+      setState(() {
+        _themeMode = theme;
+      });
     }
   }
 
-  ThemeMode _loadSavedTheme() {
+  Future<ThemeMode> _loadSavedTheme() async {
     try {
-      final idx = HiveService.settingsBox
-          .get('theme_mode', defaultValue: 0);
+      final box = await HiveService.settingsBox;
+      final idx = box.get('theme_mode', defaultValue: 0);
       return idx == 1 ? ThemeMode.dark : ThemeMode.light;
     } catch (e) {
       return ThemeMode.light;
     }
   }
 
-  void _navigate() {
+  Future<void> _navigate() async {
+    final isOnboardingComplete = await HiveService.isOnboardingComplete;
     if (!mounted) return;
-    final destination = HiveService.isOnboardingComplete
+    final destination = isOnboardingComplete
         ? const AppShell()
         : const OnboardingScreen();
     Navigator.of(context).pushReplacement(
@@ -119,10 +121,9 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final discSize = size.width * 0.42;
-    
-    // Load saved theme mode
-    final themeMode = _loadSavedTheme();
-    final isDark = themeMode == ThemeMode.dark;
+
+    // Use loaded theme mode
+    final isDark = _themeMode == ThemeMode.dark;
 
     return Scaffold(
       body: Container(

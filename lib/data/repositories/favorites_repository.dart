@@ -2,19 +2,23 @@ import 'package:play_beats/data/models/song_model.dart';
 import 'package:play_beats/data/services/hive_service.dart';
 
 class FavoritesRepository {
-  List<Song> getFavorites() {
-    return HiveService.favoritesBox.values.toList();
+  Future<List<Song>> getFavorites() async {
+    final box = await HiveService.favoritesBox;
+    return box.values.toList();
   }
 
   Future<void> addFavorite(Song song) async {
-    await HiveService.favoritesBox.put(song.id, song);
+    final box = await HiveService.favoritesBox;
+    await box.put(song.id, song);
   }
 
   Future<void> removeFavorite(String songId) async {
-    await HiveService.favoritesBox.delete(songId);
+    final box = await HiveService.favoritesBox;
+    await box.delete(songId);
   }
 
-  bool isFavorite(String songId) {
-    return HiveService.favoritesBox.containsKey(songId);
+  Future<bool> isFavorite(String songId) async {
+    final box = await HiveService.favoritesBox;
+    return box.containsKey(songId);
   }
 }

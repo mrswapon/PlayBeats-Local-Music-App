@@ -6,9 +6,9 @@ import 'package:play_beats/data/services/hive_service.dart';
 class SongMetadataRepository {
 
   /// Get custom title for a song
-  String? getCustomTitle(String songId) {
+  Future<String?> getCustomTitle(String songId) async {
     try {
-      final box = HiveService.settingsBox;
+      final box = await HiveService.settingsBox;
       return box.get('custom_title_$songId');
     } catch (e) {
       return null;
@@ -18,7 +18,7 @@ class SongMetadataRepository {
   /// Set custom title for a song
   Future<void> setCustomTitle(String songId, String? customTitle) async {
     try {
-      final box = HiveService.settingsBox;
+      final box = await HiveService.settingsBox;
       if (customTitle == null || customTitle.isEmpty) {
         // Remove custom title if empty
         await box.delete('custom_title_$songId');
@@ -31,8 +31,8 @@ class SongMetadataRepository {
   }
 
   /// Apply custom title to a song
-  Song applyCustomTitle(Song song) {
-    final customTitle = getCustomTitle(song.id);
+  Future<Song> applyCustomTitle(Song song) async {
+    final customTitle = await getCustomTitle(song.id);
     if (customTitle != null && customTitle.isNotEmpty) {
       return song.copyWith(customTitle: customTitle);
     }
@@ -40,8 +40,12 @@ class SongMetadataRepository {
   }
 
   /// Apply custom titles to a list of songs
-  List<Song> applyCustomTitles(List<Song> songs) {
-    return songs.map((song) => applyCustomTitle(song)).toList();
+  Future<List<Song>> applyCustomTitles(List<Song> songs) async {
+    final updated = <Song>[];
+    for (final song in songs) {
+      updated.add(await applyCustomTitle(song));
+    }
+    return updated;
   }
 
   /// Clear custom title for a song
@@ -50,8 +54,8 @@ class SongMetadataRepository {
   }
 
   /// Check if a song has a custom title
-  bool hasCustomTitle(String songId) {
-    final customTitle = getCustomTitle(songId);
+  Future<bool> hasCustomTitle(String songId) async {
+    final customTitle = await getCustomTitle(songId);
     return customTitle != null && customTitle.isNotEmpty;
   }
 }
