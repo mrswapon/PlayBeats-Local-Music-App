@@ -1,9 +1,10 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:play_beats/core/theme/app_theme.dart';
+import 'package:video_player/video_player.dart';
 import 'package:play_beats/data/models/video_model.dart';
-import 'package:play_beats/data/services/video_player_service.dart';
 
 class VideoPlayerScreen extends StatefulWidget {
   final Video video;
@@ -15,15 +16,20 @@ class VideoPlayerScreen extends StatefulWidget {
 }
 
 class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
-  VideoPlayerService? _videoPlayerService;
-  bool _isInitialized = false;
-  bool _isDisposed = false;
+  VideoPlayerController? _controller;
+  ChewieController? _chewieController;
   bool _isFullscreen = false;
+  bool _isPlaying = false;
+  bool _showControls = true;
+  Timer? _hideTimer;
+  bool _isBuffering = false;
+  Duration _position = Duration.zero;
+  Duration _duration = Duration.zero;
+  bool _isDisposed = false;
 
   @override
   void initState() {
     super.initState();
-    // Start in portrait mode
     _setPortraitOrientation();
     _initializePlayer();
   }
@@ -32,9 +38,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     await SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
     ]);
-    await SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.edgeToEdge,
-    );
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
 
   Future<void> _setLandscapeOrientation() async {
@@ -42,44 +46,36 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       DeviceOrientation.landscapeLeft,
       DeviceOrientation.landscapeRight,
     ]);
-    await SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.immersiveSticky,
-    );
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   Future<void> _resetOrientation() async {
-    await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
-    await SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.edgeToEdge,
-    );
-  }
-
-  Future<void> _toggleFullscreen() async {
-    setState(() {
-      _isFullscreen = !_isFullscreen;
-    });
-    // First change orientation, then update aspect ratio
-    if (_isFullscreen) {
-      await _setLandscapeOrientation();
-      await _videoPlayerService?.updateAspectRatio(_isFullscreen);
-    } else {
-      await _videoPlayerService?.updateAspectRatio(_isFullscreen);
-      await _setPortraitOrientation();
-    }
+    await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   }
 
   Future<void> _initializePlayer() async {
-    if (_isDisposed) return;
-
     try {
-      _videoPlayerService = VideoPlayerService();
-      await _videoPlayerService!.initialize(widget.video.filePath);
+      _controller = VideoPlayerController.file(
+        File(widget.video.filePath),
+      )..addListener(_onVideoChanged);
+
+      await _controller!.initialize();
+      _duration = _controller!.value.duration;
+
+      _chewieController = ChewieController(
+        videoPlayerController: _controller!,
+        autoPlay: true,
+        looping: false,
+        showControlsOnInitialize: false,
+        allowFullScreen: false,
+        allowMuting: false,
+        allowPlaybackSpeedChanging: true,
+        aspectRatio: 16 / 9,
+      );
+
       if (mounted && !_isDisposed) {
-        setState(() {
-          _isInitialized = true;
-        });
+        setState(() => _isBuffering = false);
       }
     } catch (e) {
       if (mounted && !_isDisposed) {
@@ -93,196 +89,366 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     }
   }
 
+  void _onVideoChanged() {
+    if (_controller != null && !_isDisposed) {
+      setState(() {
+        _isPlaying = _controller!.value.isPlaying;
+        _position = _controller!.value.position;
+        _isBuffering = _controller!.value.isBuffering;
+      });
+    }
+  }
+
+  void _togglePlayPause() {
+    if (_isPlaying) {
+      _controller?.pause();
+    } else {
+      _controller?.play();
+    }
+    _resetHideTimer();
+  }
+
+  void _seekRelative(Duration offset) {
+    var newPosition = _position + offset;
+    if (newPosition < Duration.zero) newPosition = Duration.zero;
+    if (newPosition > _duration) newPosition = _duration;
+    _controller?.seekTo(newPosition);
+    _resetHideTimer();
+  }
+
+  void _toggleFullscreen() async {
+    setState(() => _isFullscreen = !_isFullscreen);
+    if (_isFullscreen) {
+      await _setLandscapeOrientation();
+    } else {
+      await _resetOrientation();
+    }
+    _resetHideTimer();
+  }
+
+  void _resetHideTimer() {
+    _hideTimer?.cancel();
+    if (_isPlaying) {
+      _hideTimer = Timer(const Duration(seconds: 3), () {
+        if (mounted && !_isDisposed) {
+          setState(() => _showControls = false);
+        }
+      });
+    }
+  }
+
+  void _onTap() {
+    setState(() => _showControls = !_showControls);
+    _resetHideTimer();
+  }
+
+  void _onDoubleTap(double xPosition) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    if (xPosition < screenWidth / 2) {
+      _seekRelative(const Duration(seconds: -10));
+    } else {
+      _seekRelative(const Duration(seconds: 10));
+    }
+  }
+
+  String _formatDuration(Duration duration) {
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60);
+    final seconds = duration.inSeconds.remainder(60);
+    if (hours > 0) {
+      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+    }
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
   @override
   void dispose() {
     _isDisposed = true;
+    _hideTimer?.cancel();
+    _controller?.removeListener(_onVideoChanged);
+    _controller?.dispose();
+    _chewieController?.dispose();
     _resetOrientation();
-    if (_videoPlayerService != null) {
-      try {
-        _videoPlayerService!.dispose();
-      } catch (e) {
-        // Ignore disposal errors
-      }
-      _videoPlayerService = null;
-    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
-        children: [
-          // Video player
-          Center(
-            child: _isInitialized && !_isDisposed &&
-                    _videoPlayerService?.chewieController != null
-                ? Chewie(
-                    controller: _videoPlayerService!.chewieController!,
-                  )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(
-                        color: c.accent,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Loading video...',
-                        style: TextStyle(color: c.textSecondary),
-                      ),
-                    ],
+      body: _controller == null || !_controller!.value.isInitialized
+          ? const Center(child: CircularProgressIndicator())
+          : Stack(
+              children: [
+                // Video
+                Center(
+                  child: AspectRatio(
+                    aspectRatio: _controller!.value.aspectRatio,
+                    child: VideoPlayer(_controller!),
                   ),
+                ),
+
+                // Buffering indicator
+                if (_isBuffering)
+                  const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+
+                // Gesture detector
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: _onTap,
+                    onDoubleTapDown: (details) {
+                      _onDoubleTap(details.localPosition.dx);
+                    },
+                    onVerticalDragUpdate: (details) {
+                      // Volume/brightness control could be added here
+                    },
+                    child: Container(color: Colors.transparent),
+                  ),
+                ),
+
+                // Top bar
+                if (_showControls) _buildTopBar(),
+
+                // Bottom controls
+                if (_showControls) _buildBottomControls(),
+
+                // Center play/pause button
+                if (_showControls) _buildCenterControls(),
+
+                // Double tap indicators
+                if (_showControls) _buildDoubleTapIndicators(),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.black.withValues(alpha: 0.8), Colors.transparent],
           ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              children: [
+                // Back button
+                IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () {
+                    _resetOrientation();
+                    Navigator.pop(context);
+                  },
+                ),
+                const SizedBox(width: 8),
+                // Title
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.video.title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        widget.video.artist,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Fullscreen button
+                IconButton(
+                  icon: Icon(
+                    _isFullscreen
+                        ? Icons.fullscreen_exit
+                        : Icons.fullscreen,
+                    color: Colors.white,
+                  ),
+                  onPressed: _toggleFullscreen,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
-          // Top bar - always visible in portrait mode
-          if (!_isFullscreen)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
+  Widget _buildBottomControls() {
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.bottomCenter,
+            end: Alignment.topCenter,
+            colors: [Colors.black.withValues(alpha: 0.8), Colors.transparent],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Progress bar
+              VideoProgressIndicator(
+                _controller!,
+                allowScrubbing: true,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                colors: const VideoProgressColors(
+                  playedColor: Colors.blue,
+                  bufferedColor: Colors.white38,
+                  backgroundColor: Colors.white24,
+                ),
+              ),
+              // Control buttons
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  children: [
+                    // Current time
+                    Text(
+                      _formatDuration(_position),
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                    const Spacer(),
+                    // Skip back 10s
+                    IconButton(
+                      icon: const Icon(Icons.replay_10, color: Colors.white),
+                      onPressed: () => _seekRelative(const Duration(seconds: -10)),
+                      tooltip: 'Rewind 10s',
+                    ),
+                    // Play/Pause
+                    IconButton(
+                      icon: Icon(
+                        _isPlaying ? Icons.pause_circle : Icons.play_circle,
+                        color: Colors.white,
+                        size: 40,
+                      ),
+                      onPressed: _togglePlayPause,
+                    ),
+                    // Skip forward 10s
+                    IconButton(
+                      icon: const Icon(Icons.forward_10, color: Colors.white),
+                      onPressed: () => _seekRelative(const Duration(seconds: 10)),
+                      tooltip: 'Forward 10s',
+                    ),
+                    const Spacer(),
+                    // Remaining time
+                    Text(
+                      '-${_formatDuration(_duration - _position)}',
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCenterControls() {
+    return Positioned.fill(
+      child: Center(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                shape: BoxShape.circle,
+              ),
+            ),
+            GestureDetector(
+              onTap: _togglePlayPause,
               child: Container(
+                width: 64,
+                height: 64,
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.7),
-                      Colors.transparent,
-                    ],
-                  ),
+                  color: Colors.black.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
                 ),
-                child: SafeArea(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      children: [
-                        GestureDetector(
-                          onTap: () {
-                            _resetOrientation();
-                            Navigator.pop(context);
-                          },
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                widget.video.title,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                widget.video.artist,
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.7),
-                                  fontSize: 12,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                child: Icon(
+                  _isPlaying ? Icons.pause : Icons.play_arrow,
+                  color: Colors.white,
+                  size: 40,
                 ),
               ),
             ),
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-          // Rotate to landscape button (bottom-right corner in portrait mode)
-          if (!_isFullscreen)
-            Positioned(
-              right: 16,
-              bottom: 16,
-              child: GestureDetector(
-                onTap: _toggleFullscreen,
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.6),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.screen_rotation,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
-              ),
+  Widget _buildDoubleTapIndicators() {
+    return Positioned.fill(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.3),
+              shape: BoxShape.circle,
             ),
-
-          // Exit fullscreen button (bottom-right corner in landscape mode)
-          if (_isFullscreen)
-            Positioned(
-              right: 16,
-              bottom: 16,
-              child: GestureDetector(
-                onTap: _toggleFullscreen,
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.6),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        blurRadius: 8,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.screen_rotation,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
-              ),
+            child: const Icon(
+              Icons.replay_10,
+              color: Colors.white54,
+              size: 40,
             ),
+          ),
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.3),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.forward_10,
+              color: Colors.white54,
+              size: 40,
+            ),
+          ),
         ],
       ),
     );
