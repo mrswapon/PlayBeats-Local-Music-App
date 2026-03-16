@@ -14,11 +14,19 @@ class VideosLoading extends VideosState {}
 
 class VideosLoaded extends VideosState {
   final List<Video> videos;
+  final bool isRefreshing;
 
-  const VideosLoaded(this.videos);
+  const VideosLoaded(this.videos, {this.isRefreshing = false});
+
+  VideosLoaded copyWith({List<Video>? videos, bool? isRefreshing}) {
+    return VideosLoaded(
+      videos ?? this.videos,
+      isRefreshing: isRefreshing ?? this.isRefreshing,
+    );
+  }
 
   @override
-  List<Object?> get props => [videos];
+  List<Object?> get props => [videos, isRefreshing];
 }
 
 class VideosPermissionDenied extends VideosState {}

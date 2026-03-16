@@ -71,3 +71,5 @@ class ReorderSongInPlaylist extends PlaylistsEvent {
   @override
   List<Object?> get props => [playlistId, oldIndex, newIndex];
 }
+
+class ClearPlaylistsCache extends PlaylistsEvent {}

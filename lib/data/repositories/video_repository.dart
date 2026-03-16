@@ -7,4 +7,6 @@ class VideoRepository {
   Future<bool> requestPermission() => _service.requestPermission();
 
   Future<List<Video>> getAllVideos() => _service.getAllVideos();
+
+  Future<void> clearCache() => _service.clearCache();
 }

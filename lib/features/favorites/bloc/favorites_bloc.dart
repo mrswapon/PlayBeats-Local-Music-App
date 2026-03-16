@@ -12,6 +12,7 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
     on<LoadFavorites>(_onLoadFavorites);
     on<AddToFavorites>(_onAddToFavorites);
     on<RemoveFromFavorites>(_onRemoveFromFavorites);
+    on<ClearFavoritesCache>(_onClearFavoritesCache);
   }
 
   Future<void> _onLoadFavorites(
@@ -38,5 +39,12 @@ class FavoritesBloc extends Bloc<FavoritesEvent, FavoritesState> {
     await _repository.removeFavorite(event.songId);
     final favorites = await _repository.getFavorites();
     emit(FavoritesLoaded(favorites));
+  }
+
+  Future<void> _onClearFavoritesCache(
+    ClearFavoritesCache event,
+    Emitter<FavoritesState> emit,
+  ) async {
+    _repository.clearCache();
   }
 }

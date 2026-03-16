@@ -12,6 +12,8 @@ class LoadVideos extends VideosEvent {}
 
 class RefreshVideos extends VideosEvent {}
 
+class ClearVideoCache extends VideosEvent {}
+
 class PlayVideo extends VideosEvent {
   final Video video;
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:play_beats/data/models/song_model.dart';
@@ -12,7 +13,7 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
   List<Song> _playlist = [];
   int _currentIndex = 0;
   
-  // Preload next song for faster playback
+  // Preload cache for faster playback
   Song? _nextSong;
 
   AudioPlayerService() {
@@ -35,8 +36,8 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
     if (playlist != null && index != null) {
       _playlist = playlist;
       _currentIndex = index;
-      // Preload next song
-      _preloadNextSong(index);
+      // Preload next and previous songs
+      _preloadAdjacentSongs(index);
     }
 
     final artUri = song.albumId != 0
@@ -53,20 +54,29 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
     ));
 
     try {
-      // Use setFilePath with faster loading
+      // Use setFilePath with audio preload for faster start
       await _player.setFilePath(song.filePath);
       await _player.play();
     } catch (e) {
-      // Error playing song
+      log('Error playing song: $e');
     }
   }
 
-  /// Preload the next song for faster playback
-  void _preloadNextSong(int currentIndex) {
+  /// Preload adjacent songs for faster playback
+  void _preloadAdjacentSongs(int currentIndex) {
     if (_playlist.isEmpty || _playlist.length <= 1) return;
     
     final nextIndex = (currentIndex + 1) % _playlist.length;
     _nextSong = _playlist[nextIndex];
+    
+    // Pre-buffer next song
+    _player.setAudioSource(
+      AudioSource.file(_playlist[nextIndex].filePath),
+      preload: true,
+    ).catchError((e) {
+      log('Preload error: $e');
+      return null;
+    });
   }
 
   @override

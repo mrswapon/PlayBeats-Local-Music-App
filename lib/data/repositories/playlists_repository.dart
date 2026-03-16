@@ -2,12 +2,27 @@ import 'package:play_beats/data/models/playlist_model.dart';
 import 'package:play_beats/data/services/hive_service.dart';
 
 class PlaylistsRepository {
+  // In-memory cache
+  List<Playlist>? _cachedPlaylists;
+  Map<String, Playlist>? _playlistMap;
+
   Future<List<Playlist>> getAllPlaylists() async {
+    if (_cachedPlaylists != null) {
+      return _cachedPlaylists!;
+    }
+    
     final box = await HiveService.playlistsBox;
-    return box.values.toList();
+    _cachedPlaylists = box.values.toList();
+    _playlistMap = {for (final p in _cachedPlaylists!) p.id: p};
+    return _cachedPlaylists!;
   }
 
   Future<Playlist?> getPlaylist(String id) async {
+    // Check cache first
+    if (_playlistMap != null) {
+      return _playlistMap![id];
+    }
+    
     final box = await HiveService.playlistsBox;
     return box.get(id);
   }
@@ -16,16 +31,19 @@ class PlaylistsRepository {
     final playlist = Playlist.create(name);
     final box = await HiveService.playlistsBox;
     await box.put(playlist.id, playlist);
+    _invalidateCache();
   }
 
   Future<void> updatePlaylist(Playlist playlist) async {
     final box = await HiveService.playlistsBox;
     await box.put(playlist.id, playlist);
+    _invalidateCache();
   }
 
   Future<void> deletePlaylist(String id) async {
     final box = await HiveService.playlistsBox;
     await box.delete(id);
+    _invalidateCache();
   }
 
   Future<void> addSongToPlaylist(String playlistId, String songId) async {
@@ -33,13 +51,13 @@ class PlaylistsRepository {
     final playlist = box.get(playlistId);
     if (playlist == null) return;
 
-    // Don't add duplicates
     if (playlist.songIds.contains(songId)) return;
 
     final updated = playlist.copyWith(
       songIds: [...playlist.songIds, songId],
     );
     await box.put(playlistId, updated);
+    _invalidateCache();
   }
 
   Future<void> removeSongFromPlaylist(String playlistId, String songId) async {
@@ -51,6 +69,7 @@ class PlaylistsRepository {
       songIds: playlist.songIds.where((id) => id != songId).toList(),
     );
     await box.put(playlistId, updated);
+    _invalidateCache();
   }
 
   Future<void> reorderSongInPlaylist(
@@ -71,11 +90,20 @@ class PlaylistsRepository {
 
     final updated = playlist.copyWith(songIds: songIds);
     await box.put(playlistId, updated);
+    _invalidateCache();
   }
 
   Future<bool> isSongInPlaylist(String playlistId, String songId) async {
-    final box = await HiveService.playlistsBox;
-    final playlist = box.get(playlistId);
+    final playlist = await getPlaylist(playlistId);
     return playlist?.songIds.contains(songId) ?? false;
+  }
+
+  void _invalidateCache() {
+    _cachedPlaylists = null;
+    _playlistMap = null;
+  }
+
+  void clearCache() {
+    _invalidateCache();
   }
 }

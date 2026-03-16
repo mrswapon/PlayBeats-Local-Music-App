@@ -27,3 +27,5 @@ class RemoveFromFavorites extends FavoritesEvent {
   @override
   List<Object?> get props => [songId];
 }
+
+class ClearFavoritesCache extends FavoritesEvent {}
