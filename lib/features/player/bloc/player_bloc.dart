@@ -85,7 +85,6 @@ class PlayerBloc extends Bloc<PlayerEvent, PlayerState> {
       shuffleEnabled: state.shuffleEnabled,
     ));
 
-    _audioService.setPlaylist(playlist, index >= 0 ? index : 0);
     await _audioService.playSong(event.song, playlist: playlist, index: index);
   }
 

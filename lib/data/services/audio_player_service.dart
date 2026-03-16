@@ -3,18 +3,25 @@ import 'dart:developer';
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:play_beats/data/models/song_model.dart';
+import 'package:play_beats/data/models/video_model.dart';
 
+/// Combined audio player service for both songs and video-as-audio
 class AudioPlayerService extends BaseAudioHandler with SeekHandler {
   final AudioPlayer _player = AudioPlayer();
 
   final _currentSongController = StreamController<Song?>.broadcast();
+  final _currentVideoController = StreamController<Video?>.broadcast();
+  
   Song? _currentSong;
+  Video? _currentVideo;
+  bool _isVideoMode = false;
+  
   StreamSubscription<PlaybackEvent>? _playbackSubscription;
-  List<Song> _playlist = [];
+  List<dynamic> _playlist = []; // Can hold Song or Video
   int _currentIndex = 0;
   
   // Preload cache for faster playback
-  Song? _nextSong;
+  dynamic _nextItem;
 
   AudioPlayerService() {
     _playbackSubscription = _player.playbackEventStream.listen(_broadcastState);
@@ -22,22 +29,23 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
 
   AudioPlayer get player => _player;
   Stream<Song?> get currentSongStream => _currentSongController.stream;
+  Stream<Video?> get currentVideoStream => _currentVideoController.stream;
   Song? get currentSong => _currentSong;
+  Video? get currentVideo => _currentVideo;
+  bool get isVideoMode => _isVideoMode;
 
-  void setPlaylist(List<Song> playlist, int index) {
-    _playlist = playlist;
-    _currentIndex = index;
-  }
-
+  /// Play a song
   Future<void> playSong(Song song, {List<Song>? playlist, int? index}) async {
+    _isVideoMode = false;
     _currentSong = song;
+    _currentVideo = null;
     _currentSongController.add(song);
+    _currentVideoController.add(null);
 
     if (playlist != null && index != null) {
       _playlist = playlist;
       _currentIndex = index;
-      // Preload next and previous songs
-      _preloadAdjacentSongs(index);
+      _preloadNextItem(index);
     }
 
     final artUri = song.albumId != 0
@@ -54,7 +62,6 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
     ));
 
     try {
-      // Use setFilePath with audio preload for faster start
       await _player.setFilePath(song.filePath);
       await _player.play();
     } catch (e) {
@@ -62,21 +69,35 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
     }
   }
 
-  /// Preload adjacent songs for faster playback
-  void _preloadAdjacentSongs(int currentIndex) {
-    if (_playlist.isEmpty || _playlist.length <= 1) return;
-    
-    final nextIndex = (currentIndex + 1) % _playlist.length;
-    _nextSong = _playlist[nextIndex];
-    
-    // Pre-buffer next song
-    _player.setAudioSource(
-      AudioSource.file(_playlist[nextIndex].filePath),
-      preload: true,
-    ).catchError((e) {
-      log('Preload error: $e');
-      return null;
-    });
+  /// Play a video as audio
+  Future<void> playVideoAsAudio(Video video, {List<Video>? playlist, int? index}) async {
+    _isVideoMode = true;
+    _currentVideo = video;
+    _currentSong = null;
+    _currentVideoController.add(video);
+    _currentSongController.add(null);
+
+    if (playlist != null && index != null) {
+      _playlist = playlist;
+      _currentIndex = index;
+      _preloadNextItem(index);
+    }
+
+    mediaItem.add(MediaItem(
+      id: video.id,
+      title: video.displayTitle,
+      artist: video.artist,
+      album: video.album,
+      duration: Duration(milliseconds: video.duration),
+      artUri: null,
+    ));
+
+    try {
+      await _player.setFilePath(video.filePath);
+      await _player.play();
+    } catch (e) {
+      log('Error playing video as audio: $e');
+    }
   }
 
   @override
@@ -104,18 +125,47 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
   Future<void> skipToNext() async {
     if (_playlist.isEmpty) return;
     final nextIndex = (_currentIndex + 1) % _playlist.length;
-    await playSong(_playlist[nextIndex], playlist: _playlist, index: nextIndex);
+    final nextItem = _playlist[nextIndex];
+    
+    if (nextItem is Song) {
+      await playSong(nextItem, playlist: _playlist as List<Song>, index: nextIndex);
+    } else if (nextItem is Video) {
+      await playVideoAsAudio(nextItem, playlist: _playlist as List<Video>, index: nextIndex);
+    }
   }
 
   @override
   Future<void> skipToPrevious() async {
     if (_playlist.isEmpty) return;
     final prevIndex = (_currentIndex - 1 + _playlist.length) % _playlist.length;
-    await playSong(_playlist[prevIndex], playlist: _playlist, index: prevIndex);
+    final prevItem = _playlist[prevIndex];
+    
+    if (prevItem is Song) {
+      await playSong(prevItem, playlist: _playlist as List<Song>, index: prevIndex);
+    } else if (prevItem is Video) {
+      await playVideoAsAudio(prevItem, playlist: _playlist as List<Video>, index: prevIndex);
+    }
   }
 
-  /// Get the next song for preloading
-  Song? get nextSong => _nextSong;
+  void _preloadNextItem(int currentIndex) {
+    if (_playlist.isEmpty || _playlist.length <= 1) return;
+    
+    final nextIndex = (currentIndex + 1) % _playlist.length;
+    _nextItem = _playlist[nextIndex];
+    
+    // Pre-buffer next item
+    if (_nextItem is Song) {
+      _player.setAudioSource(
+        AudioSource.file((_nextItem as Song).filePath),
+        preload: true,
+      ).catchError((e) => log('Preload error: $e'));
+    } else if (_nextItem is Video) {
+      _player.setAudioSource(
+        AudioSource.file((_nextItem as Video).filePath),
+        preload: true,
+      ).catchError((e) => log('Preload error: $e'));
+    }
+  }
 
   void _broadcastState(PlaybackEvent event) {
     final isPlaying = _player.playing;
@@ -147,15 +197,22 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
       speed: _player.speed,
       queueIndex: _currentIndex,
     ));
+
+    // Auto-play next when completed
+    if (processingState == ProcessingState.completed) {
+      skipToNext();
+    }
   }
 
   Future<void> dispose() async {
     await _playbackSubscription?.cancel();
     await _player.dispose();
     await _currentSongController.close();
+    await _currentVideoController.close();
   }
 }
 
+/// Initialize the audio service (supports both songs and video-as-audio)
 Future<AudioPlayerService> initAudioService() async {
   return await AudioService.init(
     builder: () => AudioPlayerService(),

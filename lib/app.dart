@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:play_beats/core/constants/app_constants.dart';
 import 'package:play_beats/core/theme/app_theme.dart';
 import 'package:play_beats/core/theme/theme_cubit.dart';
+import 'package:play_beats/data/models/video_model.dart';
 import 'package:play_beats/data/repositories/favorites_repository.dart';
 import 'package:play_beats/data/repositories/local_music_repository.dart';
 import 'package:play_beats/data/repositories/playlists_repository.dart';
@@ -16,6 +17,8 @@ import 'package:play_beats/features/player/bloc/player_bloc.dart';
 import 'package:play_beats/features/player/screens/player_screen.dart';
 import 'package:play_beats/features/playlists/bloc/playlists_bloc.dart';
 import 'package:play_beats/features/splash/screens/splash_screen.dart';
+import 'package:play_beats/features/videos/as_audio/bloc/video_as_audio_bloc.dart';
+import 'package:play_beats/features/videos/as_audio/screens/video_as_audio_player_screen.dart';
 import 'package:play_beats/features/videos/bloc/videos_bloc.dart';
 
 class PlayBeatsApp extends StatelessWidget {
@@ -78,6 +81,12 @@ class PlayBeatsApp extends StatelessWidget {
               repository: context.read<VideoRepository>(),
             ),
           ),
+          BlocProvider(
+            lazy: true,
+            create: (context) => VideoAsAudioBloc(
+              service: context.read<AudioPlayerService>(),
+            ),
+          ),
         ],
         child: BlocBuilder<ThemeCubit, ThemeMode>(
           builder: (context, themeMode) {
@@ -90,6 +99,13 @@ class PlayBeatsApp extends StatelessWidget {
               home: const SplashScreen(),
               routes: {
                 '/player': (context) => const PlayerScreen(),
+                '/video-as-audio': (context) {
+                  final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+                  return VideoAsAudioPlayerScreen(
+                    video: args['video'],
+                    playlist: args['playlist'] != null ? List<Video>.from(args['playlist']) : [],
+                  );
+                },
               },
             );
           },

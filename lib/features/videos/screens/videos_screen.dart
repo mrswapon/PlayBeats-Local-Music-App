@@ -8,6 +8,7 @@ import 'package:play_beats/core/theme/app_theme.dart';
 import 'package:play_beats/core/theme/neumorphic.dart';
 import 'package:play_beats/data/models/video_model.dart';
 import 'package:play_beats/data/repositories/song_metadata_repository.dart';
+import 'package:play_beats/data/services/audio_player_service.dart';
 import 'package:play_beats/data/services/video_service.dart';
 import 'package:play_beats/features/videos/bloc/videos_bloc.dart';
 import 'package:play_beats/features/videos/bloc/videos_event.dart';
@@ -34,6 +35,9 @@ class _VideosScreenState extends State<VideosScreen>
   final Set<String> _loadedThumbnailPaths = {};
   final Set<String> _loadingThumbnailPaths = {};
   
+  // Track currently playing video as audio
+  String? _playingVideoId;
+
   bool _showSearch = false;
   List<Video> _allVideos = [];
   List<Video> _filteredVideos = [];
@@ -60,6 +64,18 @@ class _VideosScreenState extends State<VideosScreen>
       duration: const Duration(milliseconds: 1100),
     );
     context.read<VideosBloc>().add(LoadVideos());
+    _listenToAudioPlayback();
+  }
+
+  void _listenToAudioPlayback() {
+    final audioService = context.read<AudioPlayerService>();
+    audioService.currentVideoStream.listen((video) {
+      if (mounted) {
+        setState(() {
+          _playingVideoId = video?.id;
+        });
+      }
+    });
   }
 
   @override
@@ -71,6 +87,27 @@ class _VideosScreenState extends State<VideosScreen>
     _loadedThumbnailPaths.clear();
     _loadingThumbnailPaths.clear();
     super.dispose();
+  }
+
+  Widget _buildNowPlayingIndicator() {
+    return SizedBox(
+      width: 16,
+      height: 12,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: List.generate(3, (i) {
+          return Container(
+            width: 3,
+            height: 6 + (i % 3) * 2,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(1),
+            ),
+          );
+        }),
+      ),
+    );
   }
 
   void _toggleSearch() {
@@ -340,6 +377,16 @@ class _VideosScreenState extends State<VideosScreen>
                   return const SizedBox.shrink();
                 },
               ),
+            ),
+
+            // Mini Player at bottom
+            StreamBuilder<Video?>(
+              stream: context.read<AudioPlayerService>().currentVideoStream,
+              builder: (context, snapshot) {
+                final video = snapshot.data;
+                if (video == null) return const SizedBox.shrink();
+                return _buildMiniPlayer(video);
+              },
             ),
           ],
         ),
@@ -643,14 +690,57 @@ class _VideosScreenState extends State<VideosScreen>
                           child: Text(
                             video.displayTitle,
                             style: TextStyle(
-                              color: c.textPrimary,
-                              fontWeight: FontWeight.w600,
+                              color: video.id == _playingVideoId ? c.accent : c.textPrimary,
+                              fontWeight: video.id == _playingVideoId ? FontWeight.w700 : FontWeight.w600,
                               fontSize: 14,
                             ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        // Now Playing indicator
+                        if (video.id == _playingVideoId) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: c.accent,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildNowPlayingIndicator(),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Playing',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        // Play as Audio button
+                        if (video.id != _playingVideoId)
+                          GestureDetector(
+                            onTap: () => _playVideoAsAudio(context, video),
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: c.accent.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Icon(
+                                Icons.headphones,
+                                size: 16,
+                                color: c.accent,
+                              ),
+                            ),
+                          ),
                         if (video.hasCustomTitle) ...[
                           const SizedBox(width: 4),
                           Icon(
@@ -933,6 +1023,17 @@ class _VideosScreenState extends State<VideosScreen>
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
+              // Play as Audio
+              ListTile(
+                leading: Icon(Icons.headphones, color: c.accent),
+                title: Text('Play as Audio', style: TextStyle(color: c.accent, fontWeight: FontWeight.w600)),
+                subtitle: const Text('Listen in background', style: TextStyle(fontSize: 11)),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _playVideoAsAudio(context, video);
+                },
+              ),
+              const Divider(height: 1),
               // Rename
               ListTile(
                 leading: Icon(Icons.edit, color: c.textPrimary),
@@ -968,6 +1069,16 @@ class _VideosScreenState extends State<VideosScreen>
           ),
         );
       },
+    );
+  }
+
+  /// Play video as audio
+  void _playVideoAsAudio(BuildContext context, Video video) {
+    // Navigate to audio player
+    Navigator.pushNamed(
+      context,
+      '/video-as-audio',
+      arguments: {'video': video, 'playlist': _filteredVideos},
     );
   }
 
@@ -1219,15 +1330,15 @@ class _VideosScreenState extends State<VideosScreen>
       debugPrint('Error deleting video: $e');
       
       if (!context.mounted) return;
-      
+
       // Check if it's a permission error
-      final isPermissionError = e.toString().contains('Permission denied') || 
+      final isPermissionError = e.toString().contains('Permission denied') ||
                                 e.toString().contains('EROFS');
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            isPermissionError 
+            isPermissionError
                 ? 'Permission denied. Please grant "All Files Access" in Settings.'
                 : 'Failed to delete video: $e',
           ),
@@ -1243,5 +1354,106 @@ class _VideosScreenState extends State<VideosScreen>
         ),
       );
     }
+  }
+
+  // ── Mini Player Widget ────────────────────────────────────────
+  Widget _buildMiniPlayer(Video video) {
+    final c = context.colors;
+    final audioService = context.read<AudioPlayerService>();
+    
+    return GestureDetector(
+      onTap: () {
+        Navigator.pushNamed(
+          context,
+          '/video-as-audio',
+          arguments: {'video': video, 'playlist': _filteredVideos},
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: c.surface,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 12,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Thumbnail placeholder
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: c.accent.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.music_note,
+                color: c.accent,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Video info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    video.displayTitle,
+                    style: TextStyle(
+                      color: c.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    video.artist,
+                    style: TextStyle(
+                      color: c.textSecondary,
+                      fontSize: 12,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Play/Pause button
+            StreamBuilder<bool>(
+              stream: audioService.player.playerStateStream.map((state) => state.playing),
+              builder: (context, snapshot) {
+                final isPlaying = snapshot.data ?? false;
+                return IconButton(
+                  icon: Icon(
+                    isPlaying ? Icons.pause_circle : Icons.play_circle,
+                    color: c.accent,
+                    size: 32,
+                  ),
+                  onPressed: () {
+                    if (isPlaying) {
+                      audioService.pause();
+                    } else {
+                      audioService.play();
+                    }
+                  },
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
