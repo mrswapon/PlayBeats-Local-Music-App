@@ -28,8 +28,8 @@ class VideosBloc extends Bloc<VideosEvent, VideosState> {
     try {
       final videos = await repository.getAllVideos();
       emit(VideosLoaded(videos));
-    } catch (e) {
-      emit(VideosError(e.toString()));
+    } catch (e, stackTrace) {
+      emit(VideosError('Failed to load videos: $e\n$stackTrace'));
     }
   }
 
