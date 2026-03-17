@@ -25,6 +25,13 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
 
   AudioPlayerService() {
     _playbackSubscription = _player.playbackEventStream.listen(_broadcastState);
+    
+    // Listen for completion and auto-play next
+    _player.playerStateStream.listen((state) {
+      if (state.processingState == ProcessingState.completed) {
+        skipToNext();
+      }
+    });
   }
 
   AudioPlayer get player => _player;
@@ -127,10 +134,14 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
     final nextIndex = (_currentIndex + 1) % _playlist.length;
     final nextItem = _playlist[nextIndex];
     
-    if (nextItem is Song) {
-      await playSong(nextItem, playlist: _playlist as List<Song>, index: nextIndex);
-    } else if (nextItem is Video) {
-      await playVideoAsAudio(nextItem, playlist: _playlist as List<Video>, index: nextIndex);
+    try {
+      if (nextItem is Song) {
+        await playSong(nextItem, playlist: _playlist as List<Song>, index: nextIndex);
+      } else if (nextItem is Video) {
+        await playVideoAsAudio(nextItem, playlist: _playlist as List<Video>, index: nextIndex);
+      }
+    } catch (e) {
+      log('Error skipping to next: $e');
     }
   }
 
@@ -140,10 +151,14 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
     final prevIndex = (_currentIndex - 1 + _playlist.length) % _playlist.length;
     final prevItem = _playlist[prevIndex];
     
-    if (prevItem is Song) {
-      await playSong(prevItem, playlist: _playlist as List<Song>, index: prevIndex);
-    } else if (prevItem is Video) {
-      await playVideoAsAudio(prevItem, playlist: _playlist as List<Video>, index: prevIndex);
+    try {
+      if (prevItem is Song) {
+        await playSong(prevItem, playlist: _playlist as List<Song>, index: prevIndex);
+      } else if (prevItem is Video) {
+        await playVideoAsAudio(prevItem, playlist: _playlist as List<Video>, index: prevIndex);
+      }
+    } catch (e) {
+      log('Error skipping to previous: $e');
     }
   }
 
@@ -181,7 +196,6 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
         MediaAction.seek,
         MediaAction.seekForward,
         MediaAction.seekBackward,
-        MediaAction.stop,
       },
       androidCompactActionIndices: const [0, 1, 2],
       processingState: const {
@@ -197,11 +211,6 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
       speed: _player.speed,
       queueIndex: _currentIndex,
     ));
-
-    // Auto-play next when completed
-    if (processingState == ProcessingState.completed) {
-      skipToNext();
-    }
   }
 
   Future<void> dispose() async {
