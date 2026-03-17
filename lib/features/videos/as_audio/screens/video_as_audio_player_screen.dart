@@ -183,7 +183,7 @@ class _VideoAsAudioPlayerScreenState extends State<VideoAsAudioPlayerScreen> {
                   stream: service.player.positionStream,
                   builder: (context, snapshot) {
                     final position = snapshot.data ?? Duration.zero;
-                    final duration = Duration(milliseconds: videoDuration is int ? videoDuration : (videoDuration as num).toInt());
+                    final duration = Duration(milliseconds: videoDuration);
                     return Column(
                       children: [
                         SliderTheme(

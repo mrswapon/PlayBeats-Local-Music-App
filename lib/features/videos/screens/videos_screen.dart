@@ -517,8 +517,31 @@ class _VideosScreenState extends State<VideosScreen>
           }
         });
       }
+      
+      // Also load duration if not available
+      if (video.duration == 0 && mounted) {
+        final duration = await _videoService.getVideoDuration(video.filePath);
+        if (mounted) {
+          setState(() {
+            final videoIndex = _allVideos.indexWhere((v) => v.id == video.id);
+            if (videoIndex != -1) {
+              _allVideos[videoIndex] = Video(
+                id: video.id,
+                title: video.title,
+                artist: video.artist,
+                filePath: video.filePath,
+                duration: duration,
+                album: video.album,
+                albumId: video.albumId,
+                thumbnailPath: video.thumbnailPath,
+              );
+              _filterVideos(_searchController.text);
+            }
+          });
+        }
+      }
     } catch (e) {
-      // Ignore thumbnail loading errors
+      // Ignore thumbnail/duration loading errors
     } finally {
       _loadingThumbnailPaths.remove(video.filePath);
     }

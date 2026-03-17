@@ -173,12 +173,18 @@ class AudioPlayerService extends BaseAudioHandler with SeekHandler {
       _player.setAudioSource(
         AudioSource.file((_nextItem as Song).filePath),
         preload: true,
-      ).catchError((e) => log('Preload error: $e'));
+      ).catchError((e) {
+        log('Preload error: $e');
+        return null;
+      });
     } else if (_nextItem is Video) {
       _player.setAudioSource(
         AudioSource.file((_nextItem as Video).filePath),
         preload: true,
-      ).catchError((e) => log('Preload error: $e'));
+      ).catchError((e) {
+        log('Preload error: $e');
+        return null;
+      });
     }
   }
 
